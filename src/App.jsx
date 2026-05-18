@@ -1,11 +1,47 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Bell, CalendarDays, CheckCircle2, ClipboardList, CreditCard, IndianRupee,
-  LayoutDashboard, MapPin, Moon, Package, Phone, Plus, ReceiptText, Search,
-  Settings, Sparkles, Sun, TrendingUp, UserCheck, Users, Wallet, X,
-  ChevronLeft, ChevronRight, Edit3, Trash2, FileText
+  Bell,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  IndianRupee,
+  LayoutDashboard,
+  MapPin,
+  Moon,
+  Package,
+  Phone,
+  Plus,
+  ReceiptText,
+  Search,
+  Settings,
+  Sparkles,
+  Sun,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Wallet,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  Trash2,
+  FileText
 } from "lucide-react";
+
+import { db } from "../firebase";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+  updateDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
 
 const START_SERVICES = [
   { id: 1, name: "Sofa Shampooing", rate: 550, unit: "seat", icon: "🛋️", category: "Shampooing" },
@@ -116,7 +152,32 @@ export default function FreshNestAdminPreview() {
   const [firebaseConfig, setFirebaseConfig] = useState({ apiKey: "", authDomain: "", projectId: "", appId: "" });
   const [calendarMonth, setCalendarMonth] = useState(new Date(2026, 4, 1));
   const [staffForm, setStaffForm] = useState({ name: "", role: "Cleaner", salary: "20000" });
-  const [inventoryForm, setInventoryForm] = useState({ item: "", stock: "", min: "", unit: "pcs" });
+  useEffect(() => {
+  const q = query(
+    collection(db, "bookings"),
+    orderBy("createdAt", "desc")
+  );
+
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const firebaseBookings = snapshot.docs.map((docItem) => ({
+      firebaseId: docItem.id,
+      ...docItem.data()
+    }));
+
+    if (firebaseBookings.length > 0) {
+      setBookings(firebaseBookings);
+    }
+  });
+
+  return () => unsubscribe();
+}, []);
+
+const [inventoryForm, setInventoryForm] = useState({
+  item: "",
+  stock: "",
+  min: "",
+  unit: "pcs"
+});
   const [payrollForm, setPayrollForm] = useState({ name: "", salary: "", advance: "0", bonus: "0" });
 
   const filteredBookings = useMemo(() => {
