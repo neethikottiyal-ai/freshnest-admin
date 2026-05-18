@@ -1,13 +1,13 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
+  apiKey:"AIzaSyDRrf6gYpMLt-vadzBcN9uyn706ipiPf8s",
   authDomain: "freshnest-90da8.firebaseapp.com",
   projectId: "freshnest-90da8",
-  storageBucket: "freshnest-90da8.firebasestorage.app",
+  storageBucket: "freshnest-90da8.appspot.com",
   messagingSenderId: "805813095058",
-  appId: "YOUR_APP_ID"
+  appId:"1:805813095058:web:d8a4cf4da935b47c7db44b"
 };
 
 const app = initializeApp(firebaseConfig);
