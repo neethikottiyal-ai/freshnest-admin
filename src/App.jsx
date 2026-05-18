@@ -40,8 +40,7 @@ import {
   serverTimestamp,
   updateDoc,
   doc
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
+} from "firebase/firestore";
 
 const START_SERVICES = [
   { id: 1, name: "Sofa Shampooing", rate: 550, unit: "seat", icon: "🛋️", category: "Shampooing" },
