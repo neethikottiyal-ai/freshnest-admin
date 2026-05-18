@@ -113,6 +113,7 @@ export default function FreshNestAdminPreview() {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showAddBooking, setShowAddBooking] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [firebaseConfig, setFirebaseConfig] = useState({ apiKey: "", authDomain: "", projectId: "", appId: "" });
   const [calendarMonth, setCalendarMonth] = useState(new Date(2026, 4, 1));
   const [staffForm, setStaffForm] = useState({ name: "", role: "Cleaner", salary: "20000" });
   const [inventoryForm, setInventoryForm] = useState({ item: "", stock: "", min: "", unit: "pcs" });
@@ -134,9 +135,9 @@ export default function FreshNestAdminPreview() {
   const fuelExpense = Math.round((totalKm / 16) * 100);
   const lowStock = inventory.filter((item) => Number(item.stock) <= Number(item.min));
   const notifications = [
-    ...lowStock.map((i) => Low stock: ${i.item} only ${i.stock} ${i.unit}),
-    ${pending} jobs pending / running,
-    Today revenue ₹${totalRevenue.toLocaleString()},
+    ...lowStock.map((i) => `Low stock: ${i.item} only ${i.stock} ${i.unit}`),
+    `${pending} jobs pending / running`,
+    `Today revenue ₹${totalRevenue.toLocaleString()}`,
   ];
 
   const nav = [
@@ -170,18 +171,25 @@ export default function FreshNestAdminPreview() {
   }
 
   function addBooking(form) {
-    const service = services.find((s) => s.name === form.service) || services[0];
-    const qty = Math.max(1, Number(form.qty || 1));
-    const baseAmount = service.name === "Balance Work" ? Number(form.amount || 0) : qty * Number(service.rate || 0);
+    const selectedItems = form.servicesList && form.servicesList.length ? form.servicesList : [{ service: form.service, qty: form.qty, amount: form.amount }];
+    const calculatedItems = selectedItems.map((item) => {
+      const service = services.find((s) => s.name === item.service) || services[0];
+      const qty = Math.max(1, Number(item.qty || 1));
+      const amount = service.name === "Balance Work" ? Number(item.amount || 0) : qty * Number(service.rate || 0);
+      return { service: service.name, qty, rate: service.rate, unit: service.unit, amount: Math.round(amount) };
+    });
+    const totalAmount = calculatedItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
     const next = {
-      id: FN-${1001 + bookings.length},
+      id: `FN-${1001 + bookings.length}`,
       customer: form.customer || "New Customer",
       phone: form.phone || "",
       area: form.area || "Trichy",
       address: form.address || form.area || "Trichy",
-      service: service.name,
-      qty,
-      amount: Math.round(baseAmount),
+      locationUrl: form.locationUrl || "",
+      service: calculatedItems.map((x) => x.service).join(" + "),
+      servicesList: calculatedItems,
+      qty: calculatedItems.reduce((sum, item) => sum + Number(item.qty || 0), 0),
+      amount: totalAmount,
       date: form.date || new Date().toISOString().slice(0, 10),
       time: form.time || "10:00 AM",
       staff: form.staff || "Unassigned",
@@ -281,7 +289,7 @@ export default function FreshNestAdminPreview() {
   }
 
   function Dashboard() {
-    return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Total Revenue" value={₹${totalRevenue.toLocaleString()}} icon={IndianRupee} sub="All bookings" /><StatCard title="Completed Revenue" value={₹${completedRevenue.toLocaleString()}} icon={CheckCircle2} sub="Paid/completed flow" /><StatCard title="Pending Jobs" value={pending} icon={ClipboardList} sub="Need follow-up" /><StatCard title="Fuel Expense" value={₹${fuelExpense}} icon={TrendingUp} sub={${totalKm} km • 16 km = ₹100} /></div><div className="grid gap-4 xl:grid-cols-3"><Card className="xl:col-span-2"><div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-black">Live Job Flow</h3><Badge>{bookings.length} Jobs</Badge></div><BookingTable compact /></Card><Card><h3 className="mb-4 text-lg font-black">Notifications</h3>{notifications.map((n, i) => <div key={i} className="mb-2 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800">🔔 {n}</div>)}</Card></div></div>;
+    return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Total Revenue" value={`₹${totalRevenue.toLocaleString()}`} icon={IndianRupee} sub="All bookings" /><StatCard title="Completed Revenue" value={`₹${completedRevenue.toLocaleString()}`} icon={CheckCircle2} sub="Paid/completed flow" /><StatCard title="Pending Jobs" value={pending} icon={ClipboardList} sub="Need follow-up" /><StatCard title="Fuel Expense" value={`₹${fuelExpense}`} icon={TrendingUp} sub={`${totalKm} km • 16 km = ₹100`} /></div><div className="grid gap-4 xl:grid-cols-3"><Card className="xl:col-span-2"><div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-black">Live Job Flow</h3><Badge>{bookings.length} Jobs</Badge></div><BookingTable compact /></Card><Card><h3 className="mb-4 text-lg font-black">Notifications</h3>{notifications.map((n, i) => <div key={i} className="mb-2 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800">🔔 {n}</div>)}</Card></div></div>;
   }
 
   function BookingTable({ compact = false }) {
@@ -301,7 +309,7 @@ export default function FreshNestAdminPreview() {
     const cells = Array.from({ length: firstDay }, () => null).concat(Array.from({ length: daysInMonth }, (_, i) => i + 1));
     const title = calendarMonth.toLocaleString("default", { month: "long", year: "numeric" });
     const moveMonth = (step) => setCalendarMonth(new Date(year, month + step, 1));
-    return <div className="grid gap-4 xl:grid-cols-[1.4fr_.6fr]"><Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-2xl font-black">{title}</h3><div className="flex gap-2"><button onClick={() => moveMonth(-1)} className="rounded-2xl border p-2 dark:border-slate-700"><ChevronLeft /></button><button onClick={() => setCalendarMonth(new Date(2026, 4, 1))} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]">Today</button><button onClick={() => moveMonth(1)} className="rounded-2xl border p-2 dark:border-slate-700"><ChevronRight /></button></div></div><div className="grid grid-cols-7 gap-2 text-center text-xs font-black text-slate-500">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => <div key={d}>{d}</div>)}</div><div className="mt-2 grid grid-cols-7 gap-2">{cells.map((day, index) => { if (!day) return <div key={empty-${index}} className="min-h-24 rounded-2xl bg-slate-50 dark:bg-slate-800/40" />; const date = ${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}; const list = bookings.filter((b) => b.date === date); return <button key={date} className="min-h-24 rounded-2xl border border-slate-200 p-2 text-left hover:border-[#d4af37] dark:border-slate-800"><b>{day}</b>{list.map((b) => <p key={b.id} className="mt-1 truncate rounded-lg bg-slate-100 px-2 py-1 text-xs dark:bg-slate-800">{b.customer}</p>)}</button>; })}</div></Card><Card><h3 className="mb-3 text-xl font-black">Month Jobs</h3><div className="space-y-2">{bookings.filter((b) => b.date.startsWith(${year}-${String(month + 1).padStart(2, "0")})).map((b) => <button key={b.id} onClick={() => setSelectedBooking(b)} className="w-full rounded-2xl bg-slate-100 p-3 text-left text-sm dark:bg-slate-800"><b>{b.customer}</b><p className="text-slate-500">{b.date} • {b.service}</p></button>)}</div></Card></div>;
+    return <div className="grid gap-4 xl:grid-cols-[1.4fr_.6fr]"><Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-2xl font-black">{title}</h3><div className="flex gap-2"><button onClick={() => moveMonth(-1)} className="rounded-2xl border p-2 dark:border-slate-700"><ChevronLeft /></button><button onClick={() => setCalendarMonth(new Date(2026, 4, 1))} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]">Today</button><button onClick={() => moveMonth(1)} className="rounded-2xl border p-2 dark:border-slate-700"><ChevronRight /></button></div></div><div className="grid grid-cols-7 gap-2 text-center text-xs font-black text-slate-500">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => <div key={d}>{d}</div>)}</div><div className="mt-2 grid grid-cols-7 gap-2">{cells.map((day, index) => { if (!day) return <div key={`empty-${index}`} className="min-h-24 rounded-2xl bg-slate-50 dark:bg-slate-800/40" />; const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`; const list = bookings.filter((b) => b.date === date); return <button key={date} className="min-h-24 rounded-2xl border border-slate-200 p-2 text-left hover:border-[#d4af37] dark:border-slate-800"><b>{day}</b>{list.map((b) => <p key={b.id} className="mt-1 truncate rounded-lg bg-slate-100 px-2 py-1 text-xs dark:bg-slate-800">{b.customer}</p>)}</button>; })}</div></Card><Card><h3 className="mb-3 text-xl font-black">Month Jobs</h3><div className="space-y-2">{bookings.filter((b) => b.date.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)).map((b) => <button key={b.id} onClick={() => setSelectedBooking(b)} className="w-full rounded-2xl bg-slate-100 p-3 text-left text-sm dark:bg-slate-800"><b>{b.customer}</b><p className="text-slate-500">{b.date} • {b.service}</p></button>)}</div></Card></div>;
   }
 
   function Services() { return <div className="space-y-4"><Card><div className="flex items-center justify-between"><div><h3 className="text-2xl font-black">Services & Rate Edit</h3><p className="text-sm text-slate-500">Rate edit panna immediate booking amount calculation use aagum.</p></div><button onClick={() => setServices((prev) => [...prev, { id: Date.now(), name: "New Service", rate: 0, unit: "unit", icon: "✨", category: "Custom" }])} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Service</button></div></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{services.map((s) => <Card key={s.id}><div className="text-5xl">{s.icon}</div><Field label="Service Name" value={s.name} onChange={(v) => setServices((prev) => prev.map((x) => x.id === s.id ? { ...x, name: v } : x))} /><div className="mt-3 grid grid-cols-2 gap-3"><Field label="Rate" type="number" value={s.rate} onChange={(v) => setServices((prev) => prev.map((x) => x.id === s.id ? { ...x, rate: Number(v || 0) } : x))} /><Field label="Unit" value={s.unit} onChange={(v) => setServices((prev) => prev.map((x) => x.id === s.id ? { ...x, unit: v } : x))} /></div><p className="mt-3 text-sm text-slate-500">{s.category}</p></Card>)}</div></div>; }
@@ -316,77 +324,465 @@ export default function FreshNestAdminPreview() {
 
   function Invoices() { return <div className="space-y-4"><Card><h3 className="text-2xl font-black">Invoices</h3><p className="text-sm text-slate-500">Keela full invoice list scroll aagum. Bottom padding fix panniten.</p></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{bookings.map((b) => <Card key={b.id}><div className="flex items-start justify-between"><div><h3 className="text-xl font-black">Invoice {b.id}</h3><p className="text-sm text-slate-500">{b.customer}</p></div><FileText className="text-[#d4af37]" /></div><div className="mt-4 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><p>{b.service}</p><p>Qty: {b.qty}</p><p>Payment: {b.payment}</p><p className="mt-2 text-2xl font-black">₹{Number(b.amount).toLocaleString()}</p></div><button className="mt-4 w-full rounded-2xl bg-[#07162a] px-4 py-3 font-black text-[#d4af37]">Download / Share Invoice</button></Card>)}</div><Card><h3 className="text-xl font-black">Invoice Settings</h3><p className="mt-2 text-sm text-slate-500">GST optional, company address, WhatsApp share and PDF download next connect pannalam.</p></Card></div>; }
 
-  function Expenses() { return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Total KM" value={${totalKm} km} icon={TrendingUp} sub="From job KM entries" /><StatCard title="Fuel Expense" value={₹${fuelExpense}} icon={ReceiptText} sub="16km = ₹100" /><StatCard title="Low Stock" value={lowStock.length} icon={Package} sub="Purchase needed" /><StatCard title="Pending Jobs" value={pending} icon={ClipboardList} sub="Team payout pending" /></div>; }
+  function Expenses() { return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Total KM" value={`${totalKm} km`} icon={TrendingUp} sub="From job KM entries" /><StatCard title="Fuel Expense" value={`₹${fuelExpense}`} icon={ReceiptText} sub="16km = ₹100" /><StatCard title="Low Stock" value={lowStock.length} icon={Package} sub="Purchase needed" /><StatCard title="Pending Jobs" value={pending} icon={ClipboardList} sub="Team payout pending" /></div>; }
 
   function SettingsView() { return <Card><h3 className="text-xl font-black">Settings</h3><div className="mt-4 grid gap-3 md:grid-cols-2"><input value="FreshNest Cleaning Services" readOnly className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950" /><input value="Trichy" readOnly className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950" /><input value="Owners: Neethirajan & Selva Kumar" readOnly className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" /></div></Card>; }
 
   function AddBookingModal({ onClose, onSave }) {
-    const [form, setForm] = useState({ customer: "", phone: "", area: "Trichy", address: "", service: services[0].name, qty: 1, amount: "", date: new Date().toISOString().slice(0, 10), time: "10:00 AM", staff: "Unassigned", balanceWork: "" });
-    const selected = services.find((s) => s.name === form.service) || services[0];
-    const amount = selected.name === "Balance Work" ? Number(form.amount || 0) : Math.round(Number(form.qty || 1) * Number(selected.rate || 0));
+    const [form, setForm] = useState({ customer: "", phone: "", area: "Trichy", address: "", locationUrl: "", service: services[0].name, qty: 1, amount: "", date: new Date().toISOString().slice(0, 10), time: "10:00 AM", staff: "Unassigned", balanceWork: "", servicesList: [{ id: 1, service: services[0].name, qty: 1, amount: "" }] });
     const set = (key, value) => setForm((old) => ({ ...old, [key]: value }));
-    return <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm"><motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl dark:bg-slate-950"><div className="mb-4 flex items-center justify-between"><div><h3 className="text-2xl font-black">Add New Job</h3><p className="text-sm text-slate-500">Call / WhatsApp booking details</p></div><button onClick={onClose} className="rounded-2xl border border-slate-200 p-2 dark:border-slate-800"><X /></button></div><div className="grid gap-4 md:grid-cols-2"><Field label="Customer" value={form.customer} onChange={(v) => set("customer", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v.replace(/[^0-9]/g, ""))} /><Field label="Area" value={form.area} onChange={(v) => set("area", v)} /><Field label="Address" value={form.address} onChange={(v) => set("address", v)} /><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Service<select value={form.service} onChange={(e) => set("service", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">{services.map((s) => <option key={s.id}>{s.name}</option>)}</select></label><Field label={Qty / ${selected.unit}} type="number" value={form.qty} onChange={(v) => set("qty", v)} /><Field label="Manual Amount / Balance Work" type="number" value={form.amount} onChange={(v) => set("amount", v)} /><Field label="Balance Work Notes" value={form.balanceWork} onChange={(v) => set("balanceWork", v)} /><Field label="Date" type="date" value={form.date} onChange={(v) => set("date", v)} /><Field label="Time" value={form.time} onChange={(v) => set("time", v)} /><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Staff<select value={form.staff} onChange={(e) => set("staff", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Unassigned</option>{staff.map((s) => <option key={s.id}>{s.name}</option>)}</select></label></div><div className="mt-5 rounded-3xl bg-slate-100 p-4 dark:bg-slate-800"><p className="text-sm text-slate-500">Auto Amount</p><p className="text-3xl font-black">₹{amount.toLocaleString()}</p><p className="text-xs text-slate-500">{selected.name === "Balance Work" ? "Manual balance amount" : ${form.qty || 1} × ₹${selected.rate} / ${selected.unit}}</p></div><div className="mt-5 grid gap-3 md:grid-cols-2"><button onClick={onClose} className="rounded-2xl border border-slate-200 px-5 py-3 font-black dark:border-slate-800">Cancel</button><button onClick={() => onSave({ ...form, amount })} className="rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]">Save Job</button></div></motion.div></div>;
+    const updateServiceRow = (id, key, value) => setForm((old) => ({ ...old, servicesList: old.servicesList.map((row) => row.id === id ? { ...row, [key]: value } : row) }));
+    const addServiceRow = () => setForm((old) => ({ ...old, servicesList: [...old.servicesList, { id: Date.now(), service: services[0].name, qty: 1, amount: "" }] }));
+    const removeServiceRow = (id) => setForm((old) => ({ ...old, servicesList: old.servicesList.length === 1 ? old.servicesList : old.servicesList.filter((row) => row.id !== id) }));
+    const rowAmount = (row) => {
+      const selected = services.find((s) => s.name === row.service) || services[0];
+      return selected.name === "Balance Work" ? Number(row.amount || 0) : Math.round(Number(row.qty || 1) * Number(selected.rate || 0));
+    };
+    const totalAmount = form.servicesList.reduce((sum, row) => sum + rowAmount(row), 0);
+    return <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm"><motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl dark:bg-slate-950"><div className="mb-4 flex items-center justify-between"><div><h3 className="text-2xl font-black">Add Manual Booking</h3><p className="text-sm text-slate-500">Multiple services + Google Map location URL support.</p></div><button onClick={onClose} className="rounded-2xl border border-slate-200 p-2 dark:border-slate-800"><X /></button></div><div className="grid gap-4 md:grid-cols-2"><Field label="Customer" value={form.customer} onChange={(v) => set("customer", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v.replace(/[^0-9]/g, ""))} /><Field label="Area" value={form.area} onChange={(v) => set("area", v)} /><Field label="Address" value={form.address} onChange={(v) => set("address", v)} /><Field label="Google Map Location URL" value={form.locationUrl} onChange={(v) => set("locationUrl", v)} placeholder="https://maps.google.com/..." /><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Staff<select value={form.staff} onChange={(e) => set("staff", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Unassigned</option>{staff.map((s) => <option key={s.id}>{s.name}</option>)}</select></label><Field label="Date" type="date" value={form.date} onChange={(v) => set("date", v)} /><Field label="Time" value={form.time} onChange={(v) => set("time", v)} /></div><Card className="mt-5 bg-slate-50 dark:bg-slate-900"><div className="mb-4 flex items-center justify-between"><h4 className="text-lg font-black">Services</h4><button onClick={addServiceRow} className="rounded-2xl bg-[#07162a] px-4 py-2 text-sm font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Service</button></div><div className="grid gap-3">{form.servicesList.map((row, index) => { const selected = services.find((s) => s.name === row.service) || services[0]; const amount = rowAmount(row); return <div key={row.id} className="grid gap-3 rounded-2xl bg-white p-3 dark:bg-slate-950 md:grid-cols-[1.5fr_.7fr_.7fr_auto]"><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Service<select value={row.service} onChange={(e) => updateServiceRow(row.id, "service", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">{services.map((s) => <option key={s.id}>{s.name}</option>)}</select></label><Field label={`Qty / ${selected.unit}`} type="number" value={row.qty} onChange={(v) => updateServiceRow(row.id, "qty", v)} /><Field label="Manual Amount" type="number" value={row.amount} onChange={(v) => updateServiceRow(row.id, "amount", v)} placeholder="Balance work" /><div className="flex items-end gap-2"><div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black dark:bg-slate-800">₹{amount.toLocaleString()}</div><button onClick={() => removeServiceRow(row.id)} className="rounded-2xl border border-red-200 p-2 text-red-600"><Trash2 size={18} /></button></div></div>; })}</div><Field label="Balance / Extra Work Notes" value={form.balanceWork} onChange={(v) => set("balanceWork", v)} /></Card><div className="mt-5 rounded-3xl bg-slate-100 p-4 dark:bg-slate-800"><p className="text-sm text-slate-500">Total Booking Amount</p><p className="text-3xl font-black">₹{totalAmount.toLocaleString()}</p></div><div className="mt-5 grid gap-3 md:grid-cols-2"><button onClick={onClose} className="rounded-2xl border border-slate-200 px-5 py-3 font-black dark:border-slate-800">Cancel</button><button onClick={() => onSave({ ...form, amount: totalAmount })} className="rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]">Save Booking</button></div></motion.div></div>;
   }
 
   function BookingDrawer({ booking, onClose }) {
-    const kmStart = Number(booking.startKm || 0); const kmEnd = Number(booking.returnKm || booking.siteKm || booking.pickupKm || 0); const km = Math.max(0, kmEnd - kmStart); const expense = Math.round((km / 16) * 100);
-    return <div className="fixed inset-0 z-50 flex justify-end bg-black/50 p-3 backdrop-blur-sm"><motion.div initial={{ x: 420, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="h-full w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl dark:bg-slate-950"><div className="sticky top-0 mb-4 flex items-center justify-between bg-white/90 pb-3 backdrop-blur dark:bg-slate-950/90"><div><h3 className="text-2xl font-black">{booking.customer}</h3><p className="text-sm text-slate-500">{booking.id} • {booking.service}</p></div><button onClick={onClose} className="rounded-2xl border border-slate-200 p-2 dark:border-slate-800"><X /></button></div><div className="grid gap-4"><Card><h4 className="mb-3 font-black">Customer Details</h4><p><Phone size={15} className="inline" /> {booking.phone}</p><p><MapPin size={15} className="inline" /> {booking.address}</p><button onClick={() => window.open(tel:${booking.phone})} className="mt-3 rounded-2xl bg-emerald-600 px-4 py-3 font-black text-white">Call Customer</button></Card><Card><h4 className="mb-3 font-black">Work Status</h4><div className="grid gap-2 md:grid-cols-2">{["Pending", "On The Way", "Work Started", "Completed"].map((s) => <button key={s} onClick={() => updateBooking(booking.id, { status: s })} className="rounded-2xl bg-slate-100 px-4 py-3 font-black hover:bg-[#d4af37] dark:bg-slate-800">{s}</button>)}</div></Card><Card><h4 className="mb-3 font-black">Balance / Extra Work</h4><Field label="Balance Work Notes" value={booking.balanceWork || ""} onChange={(v) => updateBooking(booking.id, { balanceWork: v })} /><div className="mt-3 grid grid-cols-2 gap-3"><Field label="Amount" type="number" value={booking.amount} onChange={(v) => updateBooking(booking.id, { amount: Number(v || 0) })} /><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Payment<select value={booking.payment} onChange={(e) => updateBooking(booking.id, { payment: e.target.value })} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Pending</option><option>Advance Paid</option><option>Paid</option></select></label></div></Card><Card><h4 className="mb-3 font-black">KM Workflow</h4><div className="grid gap-3 md:grid-cols-2"><Field label="Start KM" type="number" value={booking.startKm} onChange={(v) => updateBooking(booking.id, { startKm: v })} /><Field label="Pickup KM" type="number" value={booking.pickupKm} onChange={(v) => updateBooking(booking.id, { pickupKm: v })} /><Field label="Site Reach KM" type="number" value={booking.siteKm} onChange={(v) => updateBooking(booking.id, { siteKm: v })} /><Field label="Return / Drop KM" type="number" value={booking.returnKm} onChange={(v) => updateBooking(booking.id, { returnKm: v })} /></div><div className="mt-4 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><b>Total:</b> {km} km • <b>Expense:</b> ₹{expense}</div></Card></div></motion.div></div>;
+    const kmStart = Number(booking.startKm || 0);
+    const kmEnd = Number(booking.returnKm || booking.siteKm || booking.pickupKm || 0);
+    const km = Math.max(0, kmEnd - kmStart);
+    const expense = Math.round((km / 16) * 100);
+
+    return (
+      <div className="fixed inset-0 z-50 flex justify-end bg-black/50 p-3 backdrop-blur-sm">
+        <motion.div
+          initial={{ x: 420, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          className="h-full w-full max-w-xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl dark:bg-slate-950"
+        >
+          <div className="sticky top-0 mb-4 flex items-center justify-between bg-white/90 pb-3 backdrop-blur dark:bg-slate-950/90">
+            <div>
+              <h3 className="text-2xl font-black">{booking.customer}</h3>
+              <p className="text-sm text-slate-500">{booking.id} • {booking.service}</p>
+            </div>
+            <button onClick={onClose} className="rounded-2xl border border-slate-200 p-2 dark:border-slate-800">
+              <X />
+            </button>
+          </div>
+
+          <div className="grid gap-4">
+            <Card>
+              <h4 className="mb-3 font-black">Customer Details</h4>
+              <p><Phone size={15} className="inline" /> {booking.phone}</p>
+              <p><MapPin size={15} className="inline" /> {booking.address}</p>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                <button
+                  onClick={() => window.open(`tel:${booking.phone}`)}
+                  className="rounded-2xl bg-emerald-600 px-4 py-3 font-black text-white"
+                >
+                  Call Customer
+                </button>
+                {booking.locationUrl && (
+                  <button
+                    onClick={() => window.open(booking.locationUrl, "_blank", "noopener,noreferrer")}
+                    className="rounded-2xl bg-blue-600 px-4 py-3 font-black text-white"
+                  >
+                    Open Google Map
+                  </button>
+                )}
+              </div>
+            </Card>
+
+            <Card>
+              <h4 className="mb-3 font-black">Booked Services</h4>
+              <div className="grid gap-2">
+                {(booking.servicesList || [{ service: booking.service, qty: booking.qty, amount: booking.amount }]).map((item, index) => (
+                  <div key={index} className="rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800">
+                    <b>{item.service}</b>
+                    <p className="text-slate-500">Qty: {item.qty} • ₹{Number(item.amount || 0).toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            <Card>
+              <h4 className="mb-3 font-black">Work Status</h4>
+              <div className="grid gap-2 md:grid-cols-2">
+                {["Pending", "On The Way", "Work Started", "Completed"].map((status) => (
+                  <button
+                    key={status}
+                    onClick={() => updateBooking(booking.id, { status })}
+                    className="rounded-2xl bg-slate-100 px-4 py-3 font-black hover:bg-[#d4af37] dark:bg-slate-800"
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            <Card>
+              <h4 className="mb-3 font-black">Balance / Extra Work</h4>
+              <Field
+                label="Balance Work Notes"
+                value={booking.balanceWork || ""}
+                onChange={(value) => updateBooking(booking.id, { balanceWork: value })}
+              />
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <Field
+                  label="Amount"
+                  type="number"
+                  value={booking.amount}
+                  onChange={(value) => updateBooking(booking.id, { amount: Number(value || 0) })}
+                />
+                <label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">
+                  Payment
+                  <select
+                    value={booking.payment}
+                    onChange={(event) => updateBooking(booking.id, { payment: event.target.value })}
+                    className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+                  >
+                    <option>Pending</option>
+                    <option>Advance Paid</option>
+                    <option>Paid</option>
+                  </select>
+                </label>
+              </div>
+            </Card>
+
+            <Card>
+              <h4 className="mb-3 font-black">KM Workflow</h4>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Start KM" type="number" value={booking.startKm} onChange={(value) => updateBooking(booking.id, { startKm: value })} />
+                <Field label="Pickup KM" type="number" value={booking.pickupKm} onChange={(value) => updateBooking(booking.id, { pickupKm: value })} />
+                <Field label="Site Reach KM" type="number" value={booking.siteKm} onChange={(value) => updateBooking(booking.id, { siteKm: value })} />
+                <Field label="Return / Drop KM" type="number" value={booking.returnKm} onChange={(value) => updateBooking(booking.id, { returnKm: value })} />
+              </div>
+              <div className="mt-4 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+                <b>Total:</b> {km} km • <b>Expense:</b> ₹{expense}
+              </div>
+            </Card>
+          </div>
+        </motion.div>
+      </div>
+    );
   }
 
-  function LiveBookings() { return <Jobs />; }
+  function LiveBookings() {
+    return <Jobs />;
+  }
 
   function FirebaseSync() {
-    return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="text-2xl font-black">Firebase Sync</h3><p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Website/App booking Firebase database la irundhu admin dashboard ku sync aagura simulation.</p><button onClick={() => addBooking({ customer: "Website Lead Customer", phone: "9666677777", area: "KK Nagar", address: "Website booking address", service: "Water Tank Cleaning", qty: 1500, staff: "Unassigned", date: new Date().toISOString().slice(0, 10), time: "11:00 AM" })} className="mt-5 rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]">Simulate Website Booking</button></Card><Card><h3 className="text-xl font-black">Connection Details</h3><div className="mt-4 grid gap-2 text-sm"><div className="rounded-2xl bg-slate-100 p-3 dark:bg-slate-800">apiKey</div><div className="rounded-2xl bg-slate-100 p-3 dark:bg-slate-800">authDomain</div><div className="rounded-2xl bg-slate-100 p-3 dark:bg-slate-800">projectId</div><div className="rounded-2xl bg-slate-100 p-3 dark:bg-slate-800">appId</div></div></Card></div>;
+    const updateConfig = (key, value) => setFirebaseConfig((old) => ({ ...old, [key]: value }));
+    const connected = firebaseConfig.apiKey && firebaseConfig.authDomain && firebaseConfig.projectId && firebaseConfig.appId;
+
+    return (
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <h3 className="text-2xl font-black">Firebase Sync</h3>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Website/App booking Firebase database la irundhu admin dashboard ku sync aagura setup.
+          </p>
+          <div className="mt-5 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+            <p className="text-sm text-slate-500">Status</p>
+            <p className={cn("text-2xl font-black", connected ? "text-emerald-600" : "text-amber-600")}>
+              {connected ? "Config Ready" : "Config Pending"}
+            </p>
+          </div>
+          <button
+            onClick={() => addBooking({
+              customer: "Website Lead Customer",
+              phone: "9666677777",
+              area: "KK Nagar",
+              address: "Website booking address",
+              locationUrl: "https://maps.google.com/?q=KK+Nagar+Trichy",
+              servicesList: [{ service: "Water Tank Cleaning", qty: 1500, amount: "" }],
+              staff: "Unassigned",
+              date: new Date().toISOString().slice(0, 10),
+              time: "11:00 AM",
+            })}
+            className="mt-5 rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]"
+          >
+            Simulate Website Booking
+          </button>
+        </Card>
+
+        <Card>
+          <h3 className="text-xl font-black">Connection Details</h3>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Firebase config paste panna editable space.</p>
+          <div className="mt-4 grid gap-3">
+            <Field label="apiKey" value={firebaseConfig.apiKey} onChange={(value) => updateConfig("apiKey", value)} placeholder="Paste Firebase apiKey" />
+            <Field label="authDomain" value={firebaseConfig.authDomain} onChange={(value) => updateConfig("authDomain", value)} placeholder="project.firebaseapp.com" />
+            <Field label="projectId" value={firebaseConfig.projectId} onChange={(value) => updateConfig("projectId", value)} placeholder="freshnest-project" />
+            <Field label="appId" value={firebaseConfig.appId} onChange={(value) => updateConfig("appId", value)} placeholder="Firebase appId" />
+          </div>
+          <button
+            onClick={() => alert(connected ? "Firebase config saved simulation" : "Fill all Firebase config fields")}
+            className="mt-5 w-full rounded-2xl bg-[#07162a] px-4 py-3 font-black text-[#d4af37]"
+          >
+            Save Firebase Config
+          </button>
+        </Card>
+      </div>
+    );
   }
 
   function CustomersCRM() {
-    return <Card><h3 className="mb-4 text-2xl font-black">Customers CRM</h3><p className="mb-4 text-sm text-slate-500 dark:text-slate-400">Customer, phone, address, service history ellam one table la.</p><BookingTable /></Card>;
+    return (
+      <Card>
+        <h3 className="mb-4 text-2xl font-black">Customers CRM</h3>
+        <p className="mb-4 text-sm text-slate-500 dark:text-slate-400">Customer, phone, address, service history ellam one table la.</p>
+        <BookingTable />
+      </Card>
+    );
   }
 
   function CustomerHistory() {
-    const phones = [...new Set(bookings.map((b) => b.phone))];
-    return <div className="grid gap-4">{phones.map((phone) => { const list = bookings.filter((b) => b.phone === phone); const first = list[0]; return <Card key={phone}><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-xl font-black">{first.customer}</h3><p className="text-sm text-slate-500">{phone} • {list.length} booking(s)</p></div><button onClick={() => window.open(tel:${phone})} className="rounded-2xl bg-emerald-600 px-4 py-2 font-black text-white">Call</button></div><div className="mt-4 grid gap-2 md:grid-cols-3">{list.map((b) => <button key={b.id} onClick={() => setSelectedBooking(b)} className="rounded-2xl bg-slate-100 p-3 text-left text-sm dark:bg-slate-800"><b>{b.id}</b><p>{b.service}</p><p>₹{b.amount}</p><p className="text-xs text-slate-500">{b.date}</p></button>)}</div></Card>; })}</div>;
+    const phones = [...new Set(bookings.map((booking) => booking.phone))];
+    return (
+      <div className="grid gap-4">
+        {phones.map((phone) => {
+          const list = bookings.filter((booking) => booking.phone === phone);
+          const first = list[0];
+          return (
+            <Card key={phone}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-black">{first.customer}</h3>
+                  <p className="text-sm text-slate-500">{phone} • {list.length} booking(s)</p>
+                </div>
+                <button onClick={() => window.open(`tel:${phone}`)} className="rounded-2xl bg-emerald-600 px-4 py-2 font-black text-white">Call</button>
+              </div>
+              <div className="mt-4 grid gap-2 md:grid-cols-3">
+                {list.map((booking) => (
+                  <button key={booking.id} onClick={() => setSelectedBooking(booking)} className="rounded-2xl bg-slate-100 p-3 text-left text-sm dark:bg-slate-800">
+                    <b>{booking.id}</b>
+                    <p>{booking.service}</p>
+                    <p>₹{booking.amount}</p>
+                    <p className="text-xs text-slate-500">{booking.date}</p>
+                  </button>
+                ))}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    );
   }
 
   function Complaints() {
-    const [complaints, setComplaints] = useState([{ id: 1, customer: "Karthik", issue: "Staff reached late", status: "Open" }, { id: 2, customer: "Meena", issue: "Sofa stain not fully removed", status: "Reviewing" }]);
+    const [complaints, setComplaints] = useState([
+      { id: 1, customer: "Karthik", issue: "Staff reached late", status: "Open" },
+      { id: 2, customer: "Meena", issue: "Sofa stain not fully removed", status: "Reviewing" },
+    ]);
     const [form, setForm] = useState({ customer: "", issue: "" });
-    return <Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-2xl font-black">Complaints</h3><button onClick={() => { if (!form.customer.trim()) return; setComplaints((p) => [{ id: Date.now(), customer: form.customer, issue: form.issue || "New issue", status: "Open" }, ...p]); setForm({ customer: "", issue: "" }); }} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Complaint</button></div><div className="mb-4 grid gap-3 md:grid-cols-2"><input value={form.customer} onChange={(e) => setForm((o) => ({ ...o, customer: e.target.value }))} placeholder="Customer" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /><input value={form.issue} onChange={(e) => setForm((o) => ({ ...o, issue: e.target.value }))} placeholder="Issue" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /></div><div className="grid gap-3">{complaints.map((c) => <div key={c.id} className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><b>{c.customer}</b><p className="text-sm text-slate-500">{c.issue}</p><div className="mt-2"><Badge>{c.status}</Badge></div></div>)}</div></Card>;
+
+    function addComplaint() {
+      if (!form.customer.trim()) return;
+      setComplaints((previous) => [{ id: Date.now(), customer: form.customer, issue: form.issue || "New issue", status: "Open" }, ...previous]);
+      setForm({ customer: "", issue: "" });
+    }
+
+    return (
+      <Card>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h3 className="text-2xl font-black">Complaints</h3>
+          <button onClick={addComplaint} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Complaint</button>
+        </div>
+        <div className="mb-4 grid gap-3 md:grid-cols-2">
+          <input value={form.customer} onChange={(event) => setForm((old) => ({ ...old, customer: event.target.value }))} placeholder="Customer" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+          <input value={form.issue} onChange={(event) => setForm((old) => ({ ...old, issue: event.target.value }))} placeholder="Issue" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" />
+        </div>
+        <div className="grid gap-3">
+          {complaints.map((complaint) => (
+            <div key={complaint.id} className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+              <b>{complaint.customer}</b>
+              <p className="text-sm text-slate-500">{complaint.issue}</p>
+              <div className="mt-2"><Badge>{complaint.status}</Badge></div>
+            </div>
+          ))}
+        </div>
+      </Card>
+    );
   }
 
   function StaffPerformance() {
-    return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{staff.map((s) => { const count = bookings.filter((b) => b.staff === s.name).length; const completed = bookings.filter((b) => b.staff === s.name && b.status === "Completed").length; const score = Math.min(100, 70 + completed * 10 + count * 3); return <Card key={s.id}><h3 className="text-xl font-black">{s.name}</h3><p className="text-sm text-slate-500">{s.role}</p><p className="mt-4 text-4xl font-black text-[#07162a] dark:text-white">{score}</p><p className="text-sm text-slate-500">Performance score</p><p className="mt-3 text-xs text-slate-500">Jobs: {count} • Completed: {completed}</p></Card>; })}</div>;
+    return (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {staff.map((person) => {
+          const count = bookings.filter((booking) => booking.staff === person.name).length;
+          const completed = bookings.filter((booking) => booking.staff === person.name && booking.status === "Completed").length;
+          const score = Math.min(100, 70 + completed * 10 + count * 3);
+          return (
+            <Card key={person.id}>
+              <h3 className="text-xl font-black">{person.name}</h3>
+              <p className="text-sm text-slate-500">{person.role}</p>
+              <p className="mt-4 text-4xl font-black text-[#07162a] dark:text-white">{score}</p>
+              <p className="text-sm text-slate-500">Performance score</p>
+              <p className="mt-3 text-xs text-slate-500">Jobs: {count} • Completed: {completed}</p>
+            </Card>
+          );
+        })}
+      </div>
+    );
   }
 
   function Attendance() {
-    return <Card><h3 className="mb-4 text-2xl font-black">Attendance</h3><div className="grid gap-3">{staff.map((s) => <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div><b>{s.name}</b><p className="text-sm text-slate-500">{s.role}</p></div><select value={s.status} onChange={(e) => setStaff((prev) => prev.map((x) => x.id === s.id ? { ...x, status: e.target.value } : x))} className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Present</option><option>Absent</option></select></div>)}</div></Card>;
+    return (
+      <Card>
+        <h3 className="mb-4 text-2xl font-black">Attendance</h3>
+        <div className="grid gap-3">
+          {staff.map((person) => (
+            <div key={person.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+              <div>
+                <b>{person.name}</b>
+                <p className="text-sm text-slate-500">{person.role}</p>
+              </div>
+              <select
+                value={person.status}
+                onChange={(event) => setStaff((previous) => previous.map((item) => item.id === person.id ? { ...item, status: event.target.value } : item))}
+                className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"
+              >
+                <option>Present</option>
+                <option>Absent</option>
+              </select>
+            </div>
+          ))}
+        </div>
+      </Card>
+    );
   }
 
   function Reminders() {
-    const pendingPayments = bookings.filter((b) => b.payment !== "Paid");
-    const completedJobs = bookings.filter((b) => b.status === "Completed");
-    return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Payment Reminders</h3>{pendingPayments.map((b) => <div key={b.id} className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800"><div><b>{b.customer}</b><p className="text-xs text-slate-500">₹{b.amount} pending</p></div><button onClick={() => window.open(https://wa.me/91${b.phone})} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">WhatsApp</button></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Review Follow-ups</h3>{completedJobs.map((b) => <div key={b.id} className="mb-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800"><b>{b.customer}</b><p className="text-sm text-slate-500">Ask review for {b.service}</p></div>)}</Card></div>;
+    const pendingPayments = bookings.filter((booking) => booking.payment !== "Paid");
+    const completedJobs = bookings.filter((booking) => booking.status === "Completed");
+    return (
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <h3 className="mb-4 text-2xl font-black">Payment Reminders</h3>
+          {pendingPayments.map((booking) => (
+            <div key={booking.id} className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800">
+              <div><b>{booking.customer}</b><p className="text-xs text-slate-500">₹{booking.amount} pending</p></div>
+              <button onClick={() => window.open(`https://wa.me/91${booking.phone}`)} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">WhatsApp</button>
+            </div>
+          ))}
+        </Card>
+        <Card>
+          <h3 className="mb-4 text-2xl font-black">Review Follow-ups</h3>
+          {completedJobs.map((booking) => (
+            <div key={booking.id} className="mb-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800">
+              <b>{booking.customer}</b>
+              <p className="text-sm text-slate-500">Ask review for {booking.service}</p>
+            </div>
+          ))}
+        </Card>
+      </div>
+    );
   }
 
   function Marketing() {
-    return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Marketing Leads</h3>{["Instagram", "Google Business", "WhatsApp", "Referral"].map((x, i) => <div key={x} className="mb-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><b>{x}</b><p className="text-sm text-slate-500">{i + 2} leads this week</p></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Campaign Ideas</h3>{["Before/After sofa reel", "Festival deep cleaning offer", "Water tank safety post", "Referral cashback"].map((x) => <div key={x} className="mb-3 rounded-2xl bg-[#07162a] p-4 font-black text-[#d4af37]">{x}</div>)}</Card></div>;
+    return (
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <h3 className="mb-4 text-2xl font-black">Marketing Leads</h3>
+          {["Instagram", "Google Business", "WhatsApp", "Referral"].map((item, index) => (
+            <div key={item} className="mb-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+              <b>{item}</b>
+              <p className="text-sm text-slate-500">{index + 2} leads this week</p>
+            </div>
+          ))}
+        </Card>
+        <Card>
+          <h3 className="mb-4 text-2xl font-black">Campaign Ideas</h3>
+          {["Before/After sofa reel", "Festival deep cleaning offer", "Water tank safety post", "Referral cashback"].map((item) => (
+            <div key={item} className="mb-3 rounded-2xl bg-[#07162a] p-4 font-black text-[#d4af37]">{item}</div>
+          ))}
+        </Card>
+      </div>
+    );
   }
 
   function ProfitAnalysis() {
-    const byService = services.map((s) => { const list = bookings.filter((b) => b.service === s.name); const revenue = list.reduce((sum, b) => sum + Number(b.amount || 0), 0); return { ...s, count: list.length, revenue }; }).filter((x) => x.count);
-    return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Service Profit Analysis</h3>{byService.map((s) => <div key={s.id} className="mb-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div className="flex justify-between"><b>{s.name}</b><b>₹{s.revenue}</b></div><p className="text-sm text-slate-500">{s.count} booking(s)</p></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Expense Analysis</h3><div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><b>Fuel</b><p>16 km = ₹100 automatic estimate</p><p className="mt-2 text-2xl font-black">₹{fuelExpense}</p></div></Card></div>;
+    const byService = services
+      .map((service) => {
+        const list = bookings.filter((booking) => booking.service.includes(service.name));
+        const revenue = list.reduce((sum, booking) => sum + Number(booking.amount || 0), 0);
+        return { ...service, count: list.length, revenue };
+      })
+      .filter((item) => item.count);
+
+    return (
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <h3 className="mb-4 text-2xl font-black">Service Profit Analysis</h3>
+          {byService.map((item) => (
+            <div key={item.id} className="mb-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+              <div className="flex justify-between"><b>{item.name}</b><b>₹{item.revenue}</b></div>
+              <p className="text-sm text-slate-500">{item.count} booking(s)</p>
+            </div>
+          ))}
+        </Card>
+        <Card>
+          <h3 className="mb-4 text-2xl font-black">Expense Analysis</h3>
+          <div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">
+            <b>Fuel</b>
+            <p>16 km = ₹100 automatic estimate</p>
+            <p className="mt-2 text-2xl font-black">₹{fuelExpense}</p>
+          </div>
+        </Card>
+      </div>
+    );
   }
 
   function Reports() {
-    return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Bookings" value={bookings.length} icon={ClipboardList} sub="Total records" /><StatCard title="Staff" value={staff.length} icon={Users} sub="Workers" /><StatCard title="Revenue" value={₹${totalRevenue.toLocaleString()}} icon={IndianRupee} sub="All jobs" /><StatCard title="Fuel" value={₹${fuelExpense}} icon={ReceiptText} sub="KM based" /></div>;
+    return (
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard title="Bookings" value={bookings.length} icon={ClipboardList} sub="Total records" />
+        <StatCard title="Staff" value={staff.length} icon={Users} sub="Workers" />
+        <StatCard title="Revenue" value={`₹${totalRevenue.toLocaleString()}`} icon={IndianRupee} sub="All jobs" />
+        <StatCard title="Fuel" value={`₹${fuelExpense}`} icon={ReceiptText} sub="KM based" />
+      </div>
+    );
   }
 
   function AuditLogs() {
     const logs = ["Dashboard opened", "Booking updated", "Payment marked", "Staff added", "Invoice viewed", "Rate edited"];
-    return <Card><h3 className="mb-4 text-2xl font-black">Audit Logs</h3>{logs.map((x, i) => <div key={x} className="mb-2 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800"><b>Owner</b> • {x}<p className="text-xs text-slate-500">Log #{i + 1}</p></div>)}</Card>;
+    return (
+      <Card>
+        <h3 className="mb-4 text-2xl font-black">Audit Logs</h3>
+        {logs.map((log, index) => (
+          <div key={log} className="mb-2 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800">
+            <b>Owner</b> • {log}
+            <p className="text-xs text-slate-500">Log #{index + 1}</p>
+          </div>
+        ))}
+      </Card>
+    );
   }
 
-  function Screen() { const map = { Dashboard, Jobs, "Supervisor App": SupervisorApp, "Live Bookings": LiveBookings, "Firebase Sync": FirebaseSync, Calendar: CalendarView, "Customers CRM": CustomersCRM, "Customer History": CustomerHistory, Complaints, Services, "Staff Performance": StaffPerformance, Attendance, Payroll, Inventory, Expenses, Payments, Reminders, Invoices, Marketing, "Profit Analysis": ProfitAnalysis, Reports, "Audit Logs": AuditLogs, Settings: SettingsView }; const Component = map[active] || Dashboard; return <Component />; }
+  function Screen() {
+    const map = {
+      Dashboard,
+      Jobs,
+      "Supervisor App": SupervisorApp,
+      "Live Bookings": LiveBookings,
+      "Firebase Sync": FirebaseSync,
+      Calendar: CalendarView,
+      "Customers CRM": CustomersCRM,
+      "Customer History": CustomerHistory,
+      Complaints,
+      Services,
+      "Staff Performance": StaffPerformance,
+      Attendance,
+      Payroll,
+      Inventory,
+      Expenses,
+      Payments,
+      Reminders,
+      Invoices,
+      Marketing,
+      "Profit Analysis": ProfitAnalysis,
+      Reports,
+      "Audit Logs": AuditLogs,
+      Settings: SettingsView,
+    };
+    const Component = map[active] || Dashboard;
+    return <Component />;
+  }
 
   if (!loggedIn) return <Login />;
   return <Shell><Screen /></Shell>;
