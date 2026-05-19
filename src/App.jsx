@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { collection, onSnapshot } from "firebase/firestore";
+import { db } from "./firebase";
 
 const serviceIcons = {
   "Refrigerator Interior Cleaning": "🧊",
@@ -89,6 +91,18 @@ export default function FreshNestFullERP() {
   const [loginError, setLoginError] = useState("");
   const [active, setActive] = useState("Dashboard");
   const [bookings, setBookings] = useState(bookingSeed);
+  useEffect(() => {
+  const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
+    const liveBookings = snapshot.docs.map((doc) => ({
+      firebaseId: doc.id,
+      ...doc.data(),
+    }));
+
+    setBookings(liveBookings);
+  });
+
+  return () => unsub();
+}, []);
   const [staff, setStaff] = useState(staffSeed);
   const [inventory, setInventory] = useState(inventorySeed);
   const [services, setServices] = useState(masterServices);
