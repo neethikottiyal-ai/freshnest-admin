@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import jsPDF from "jspdf";
 import {
   Bell,
   CalendarDays,
@@ -367,31 +366,35 @@ export default function FreshNestAdminPreview() {
     notify("Website booking auto synced");
   }
 
+  function openPrintableDocument(title, bodyHtml) {
+    const html = `<!doctype html><html><head><meta charset="utf-8" /><title>${title}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}h1{margin:0 0 6px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border:1px solid #e2e8f0;padding:10px;text-align:left}.total{font-size:22px;font-weight:800;margin-top:18px}.muted{color:#64748b}</style></head><body>${bodyHtml}</body></html>`;
+    const win = window.open("", "_blank");
+    if (!win) {
+      notify("Popup blocked. Browser popup allow pannunga.");
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  }
+
   function downloadInvoicePDF(booking) {
-    const pdf = new jsPDF();
-    pdf.setFontSize(18);
-    pdf.text("FreshNest Cleaning Services", 20, 20);
-    pdf.setFontSize(11);
-    pdf.text("Trichy • Owners: Neethirajan & Selva Kumar", 20, 28);
-    pdf.line(20, 34, 190, 34);
-    pdf.setFontSize(14);
-    pdf.text(`Invoice: ${booking.id}`, 20, 45);
-    pdf.setFontSize(11);
-    pdf.text(`Customer: ${booking.customer}`, 20, 55);
-    pdf.text(`Phone: ${booking.phone}`, 20, 63);
-    pdf.text(`Address: ${booking.address || booking.area}`, 20, 71);
-    pdf.text(`Date: ${booking.date} ${booking.time || ""}`, 20, 79);
-    pdf.text(`Status: ${booking.confirmed ? "Confirmed" : booking.status}`, 20, 87);
-    let y = 104;
-    (booking.servicesList || []).forEach((item, index) => {
-      pdf.text(`${index + 1}. ${item.service} - Qty: ${item.qty} - Rs.${Number(item.amount || 0).toLocaleString()}`, 24, y);
-      y += 9;
-    });
-    pdf.line(20, y + 3, 190, y + 3);
-    pdf.setFontSize(15);
-    pdf.text(`Total: Rs.${Number(booking.amount || 0).toLocaleString()}`, 20, y + 16);
-    pdf.save(`${booking.id}-FreshNest-Invoice.pdf`);
-    notify("Invoice PDF downloaded");
+    const rows = (booking.servicesList || []).map((item, index) => `<tr><td>${index + 1}</td><td>${item.service}</td><td>${item.qty}</td><td>Rs.${Number(item.amount || 0).toLocaleString()}</td></tr>`).join("");
+    openPrintableDocument(`${booking.id}-FreshNest-Invoice`, `
+      <h1>FreshNest Cleaning Services</h1>
+      <p class="muted">Trichy • Owners: Neethirajan & Selva Kumar</p>
+      <hr />
+      <h2>Invoice: ${booking.id}</h2>
+      <p><b>Customer:</b> ${booking.customer}</p>
+      <p><b>Phone:</b> ${booking.phone}</p>
+      <p><b>Address:</b> ${booking.address || booking.area}</p>
+      <p><b>Date:</b> ${booking.date} ${booking.time || ""}</p>
+      <p><b>Status:</b> ${booking.confirmed ? "Confirmed" : booking.status}</p>
+      <table><thead><tr><th>#</th><th>Service</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
+      <p class="total">Total: Rs.${Number(booking.amount || 0).toLocaleString()}</p>
+    `);
+    notify("Invoice print / Save as PDF opened");
   }
 
   function whatsappTemplate(booking, type = "confirm") {
@@ -420,21 +423,23 @@ export default function FreshNestAdminPreview() {
   }
 
   function downloadMonthlyMISPDF() {
-    const pdf = new jsPDF();
-    pdf.setFontSize(18);
-    pdf.text("FreshNest Monthly MIS Report", 20, 20);
-    pdf.setFontSize(11);
-    pdf.text("FreshNest Cleaning Services • Trichy", 20, 28);
-    pdf.line(20, 34, 190, 34);
-    pdf.text(`Total Bookings: ${bookings.length}`, 20, 48);
-    pdf.text(`Confirmed Revenue: Rs.${totalRevenue.toLocaleString()}`, 20, 58);
-    pdf.text(`Fuel Expense: Rs.${fuelExpense}`, 20, 68);
-    pdf.text(`Estimated Profit: Rs.${Math.max(0, totalRevenue - fuelExpense).toLocaleString()}`, 20, 78);
-    pdf.text(`Website Leads: ${websiteLeads.length}`, 20, 88);
-    pdf.text(`App Leads: ${appLeads.length}`, 20, 98);
-    pdf.text(`Repeat Customers: ${repeatCustomerCount}`, 20, 108);
-    pdf.save("FreshNest-Monthly-MIS.pdf");
-    notify("Monthly MIS PDF downloaded");
+    openPrintableDocument("FreshNest-Monthly-MIS", `
+      <h1>FreshNest Monthly MIS Report</h1>
+      <p class="muted">FreshNest Cleaning Services • Trichy</p>
+      <hr />
+      <table>
+        <tbody>
+          <tr><th>Total Bookings</th><td>${bookings.length}</td></tr>
+          <tr><th>Confirmed Revenue</th><td>Rs.${totalRevenue.toLocaleString()}</td></tr>
+          <tr><th>Fuel Expense</th><td>Rs.${fuelExpense}</td></tr>
+          <tr><th>Estimated Profit</th><td>Rs.${Math.max(0, totalRevenue - fuelExpense).toLocaleString()}</td></tr>
+          <tr><th>Website Leads</th><td>${websiteLeads.length}</td></tr>
+          <tr><th>App Leads</th><td>${appLeads.length}</td></tr>
+          <tr><th>Repeat Customers</th><td>${repeatCustomerCount}</td></tr>
+        </tbody>
+      </table>
+    `);
+    notify("Monthly MIS print / Save as PDF opened");
   }
 
   function addStaff() {
