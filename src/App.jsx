@@ -1,242 +1,779 @@
-import React, { useMemo, useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useMemo, useState } from "react";
 import {
-  Bell, CalendarDays, CheckCircle2, ClipboardList, CreditCard, IndianRupee,
-  LayoutDashboard, MapPin, Moon, Package, Phone, Plus, ReceiptText, Search,
-  Settings, Sparkles, Sun, TrendingUp, UserCheck, Users, Wallet, X,
-  ChevronLeft, ChevronRight, Trash2, FileText, Edit3
+  Search,
+  MapPin,
+  Phone,
+  Clock3,
+  Camera,
+  Home,
+  ClipboardList,
+  UserRound,
+  Plus,
+  CheckCircle2,
+  IndianRupee,
+  ArrowLeft,
+  Navigation,
+  ShieldCheck,
+  Trash2,
+  AlertTriangle,
+  Send,
 } from "lucide-react";
+import { motion } from "framer-motion";
 
-import { db } from "./firebase";
-import { collection, onSnapshot, query, addDoc, updateDoc, doc, serverTimestamp } from "firebase/firestore";
+const SERVICE_PHOTOS = {
+  "Deep Home Cleaning": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?auto=format&fit=crop&w=900&q=80",
+  "Sofa Shampooing": "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=900&q=80",
+  "Mattress Shampooing": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=900&q=80",
+  "Carpet Shampooing": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=900&q=80",
+};
 
-const START_SERVICES = [
-  { id: 1, name: "Sofa Shampooing", rate: 550, unit: "seat", icon: "🛋️", category: "Shampooing" },
-  { id: 2, name: "Mattress Shampooing - Single", rate: 950, unit: "unit", icon: "🛏️", category: "Mattress" },
-  { id: 3, name: "Mattress Shampooing - Double", rate: 1100, unit: "unit", icon: "🛏️", category: "Mattress" },
-  { id: 4, name: "Mattress Shampooing - King/Queen", rate: 1200, unit: "unit", icon: "👑", category: "Mattress" },
-  { id: 5, name: "Furnished Deep Cleaning", rate: 8.5, unit: "sq.ft", icon: "🏠", category: "Deep Cleaning" },
-  { id: 6, name: "Unfurnished Deep Cleaning", rate: 7.5, unit: "sq.ft", icon: "🧹", category: "Deep Cleaning" },
-  { id: 7, name: "Water Tank Cleaning", rate: 2, unit: "litre", icon: "💧", category: "Tank" },
-  { id: 8, name: "Carpet Shampooing", rate: 30, unit: "sq.ft", icon: "🧶", category: "Shampooing" },
-  { id: 9, name: "General Pest Control", rate: 3000, unit: "starting", icon: "🐜", category: "Pest Control" },
-  { id: 10, name: "Termite Pest Control", rate: 14, unit: "sq.ft", icon: "🛡️", category: "Pest Control" },
-  { id: 11, name: "AC Filter Cleaning", rate: 350, unit: "unit", icon: "🌬️", category: "Appliance" },
-  { id: 12, name: "Balance Work", rate: 0, unit: "custom", icon: "➕", category: "Extra Work" },
+const EXTRA_WORKS = [
+  { name: "Sofa Shampooing", amount: 550, unit: "/ seat", inputLabel: "Seats" },
+  { name: "Bed Shampooing - Single", amount: 950, unit: "/ unit", inputLabel: "Units" },
+  { name: "Bed Shampooing - Double", amount: 1100, unit: "/ unit", inputLabel: "Units" },
+  { name: "Bed Shampooing - King / Queen", amount: 1200, unit: "/ unit", inputLabel: "Units" },
+  { name: "Carpet Shampooing", amount: 30, unit: "/ sq.ft", inputLabel: "Sq.ft" },
+  { name: "Refrigerator Interior Cleaning", amount: 850, unit: "/ unit", inputLabel: "Units" },
+  { name: "AC Filter Cleaning", amount: 350, unit: "/ unit", inputLabel: "Units" },
+  { name: "Water Tank Cleaning", amount: 2, unit: "/ litre", inputLabel: "Litres" },
+  { name: "Loft Interior Cleaning", amount: 300, unit: "/ room", inputLabel: "Rooms" },
+  { name: "Exterior Pressure Washing", amount: 4, unit: "/ sq.ft", inputLabel: "Sq.ft" },
+  { name: "Termite Control Treatment", amount: 14, unit: "/ sq.ft", inputLabel: "Sq.ft" },
+  { name: "Deep Clean - Furnished", amount: 8.5, unit: "/ sq.ft", inputLabel: "Sq.ft" },
+  { name: "Deep Clean - Unfurnished", amount: 7.5, unit: "/ sq.ft", inputLabel: "Sq.ft" },
+  { name: "General Pest Control", amount: 3000, unit: "starting", inputLabel: "Units" },
 ];
 
-const START_STAFF = [
-  { id: 1, name: "Selva Kumar", role: "Supervisor", status: "Present", salary: 28000, advance: 2000 },
-  { id: 2, name: "Ravi Kumar", role: "Cleaner", status: "Present", salary: 22000, advance: 1000 },
-  { id: 3, name: "Amit Singh", role: "Pest Expert", status: "Present", salary: 26000, advance: 0 },
-  { id: 4, name: "Manoj Kumar", role: "Cleaner", status: "Absent", salary: 20000, advance: 0 },
+const MACHINE_ITEMS = [
+  "Vacuum machine",
+  "Shampoo machine",
+  "Brush set",
+  "Chemical can",
+  "Extension box",
+  "Microfiber cloth",
 ];
 
-const START_BOOKINGS = [
-  { id: "FN-1001", customer: "Arun Kumar", phone: "9876543210", area: "Thillai Nagar", address: "12, North Street, Trichy", locationUrl: "https://maps.google.com/?q=Thillai+Nagar+Trichy", service: "Sofa Shampooing", servicesList: [{ service: "Sofa Shampooing", qty: 4, rate: 550, amount: 2200 }], qty: 4, amount: 2200, date: "2026-05-19", time: "10:30 AM", staff: "Unassigned", supervisor: "Unassigned", status: "New Lead", payment: "Pending", source: "Website", startKm: "", pickupKm: "", siteKm: "", returnKm: "", balanceWork: "", confirmedAt: "" },
-  { id: "FN-1002", customer: "Priya S", phone: "9840012345", area: "Cantonment", address: "8, Main Road, Trichy", locationUrl: "", service: "Furnished Deep Cleaning", servicesList: [{ service: "Furnished Deep Cleaning", qty: 1000, rate: 8.5, amount: 8500 }], qty: 1000, amount: 8500, date: "2026-05-19", time: "12:00 PM", staff: "Selva Kumar", supervisor: "Selva Kumar", status: "Confirmed", payment: "Advance Paid", source: "App", startKm: "65000", pickupKm: "65004", siteKm: "65018", returnKm: "", balanceWork: "Kitchen grease extra", confirmedAt: "2026-05-19" },
-  { id: "FN-1003", customer: "Mohammed Ali", phone: "9123456789", area: "Srirangam", address: "22, Temple Road", locationUrl: "", service: "Termite Pest Control", servicesList: [{ service: "Termite Pest Control", qty: 450, rate: 14, amount: 6300 }], qty: 450, amount: 6300, date: "2026-06-08", time: "04:00 PM", staff: "Amit Singh", supervisor: "Selva Kumar", status: "Completed", payment: "Paid", source: "Google", startKm: "12000", pickupKm: "12003", siteKm: "12014", returnKm: "12028", balanceWork: "", confirmedAt: "2026-06-08" },
+const DEFAULT_STAFF = ["Selva", "Ravi", "Manoj", "Amit"];
+
+const TODAY_JOBS = [
+  {
+    id: "FN-1001",
+    customer: "Arun Kumar",
+    phone: "9876543210",
+    address: "Thillai Nagar, Trichy",
+    service: "Deep Home Cleaning",
+    icon: "🏠",
+    amount: 4500,
+    time: "10:30 AM",
+    status: "Assigned",
+  },
+  {
+    id: "FN-1002",
+    customer: "Lakshmi",
+    phone: "9000011111",
+    address: "Woraiyur, Trichy",
+    service: "Sofa Shampooing",
+    icon: "🛋️",
+    amount: 2200,
+    time: "12:00 PM",
+    status: "Assigned",
+  },
+  {
+    id: "FN-1003",
+    customer: "Vignesh",
+    phone: "9888812345",
+    address: "Srirangam, Trichy",
+    service: "Carpet Shampooing",
+    icon: "🧼",
+    amount: 1800,
+    time: "03:00 PM",
+    status: "Pending",
+  },
 ];
 
-const START_INVENTORY = [
-  { id: 1, item: "Shampoo Chemical", stock: 12, min: 10, unit: "L" },
-  { id: 2, item: "Microfiber Cloth", stock: 45, min: 20, unit: "pcs" },
-  { id: 3, item: "Pest Spray", stock: 4, min: 8, unit: "L" },
-  { id: 4, item: "Gloves", stock: 18, min: 25, unit: "pair" },
-];
+function cn(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
 
-function cn(...classes) { return classes.filter(Boolean).join(" "); }
-function getId(item) { return item.firebaseId || item.id; }
-function todayDate() { return new Date().toISOString().slice(0, 10); }
-function safeAmount(value) { return Number(value || 0); }
+function money(value) {
+  return `₹${Number(value || 0).toLocaleString("en-IN")}`;
+}
+
+function getNowTime() {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function displayTime(value) {
+  if (!value) return "";
+  const [h, m] = value.split(":");
+  const d = new Date();
+  d.setHours(Number(h || 0), Number(m || 0));
+  return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+}
 
 function Card({ children, className = "" }) {
-  return <div className={cn("rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900", className)}>{children}</div>;
+  return <div className={cn("rounded-[1.75rem] border border-white/60 bg-white p-4 shadow-xl shadow-slate-200/70", className)}>{children}</div>;
 }
 
-function Badge({ children }) {
-  const style = {
-    "New Lead": "bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-200",
-    Pending: "bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200",
-    Confirmed: "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-200",
-    "On The Way": "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200",
-    "Work Started": "bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-200",
-    Completed: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
-    Cancelled: "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-200",
-    Paid: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
-    Present: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
-    Absent: "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-200",
-  }[children] || "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200";
-  return <span className={cn("rounded-full px-3 py-1 text-xs font-bold", style)}>{children}</span>;
+function TextInput({ label, value, onChange, placeholder = "", type = "text" }) {
+  return (
+    <label className="block rounded-3xl border border-slate-100 bg-slate-50 p-4">
+      <span className="text-xs font-black uppercase tracking-wide text-slate-500">{label}</span>
+      <input
+        inputMode={type === "number" ? "numeric" : undefined}
+        type={type === "number" ? "text" : type}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value.replace(type === "number" ? /[^0-9.]/g : /$^/g, ""))}
+        placeholder={placeholder}
+        className="mt-1 w-full bg-transparent text-lg font-black text-slate-900 outline-none placeholder:text-slate-300"
+      />
+    </label>
+  );
 }
 
-function Field({ label, value, onChange, type = "text", placeholder = "" }) {
-  return <label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">{label}<input type={type} value={value ?? ""} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-[#d4af37] dark:border-slate-700 dark:bg-slate-950" /></label>;
+function Pill({ children, active, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-2xl px-4 py-3 text-sm font-black transition active:scale-95",
+        active ? "bg-[#07162a] text-[#d4af37] shadow-lg" : "bg-slate-100 text-slate-600"
+      )}
+    >
+      {children}
+    </button>
+  );
 }
 
-function StatCard({ title, value, icon: Icon, sub }) {
-  return <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}><Card className="relative overflow-hidden"><div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-[#d4af37]/20" /><div className="flex items-center justify-between gap-3"><div><p className="text-sm text-slate-500 dark:text-slate-400">{title}</p><h3 className="mt-2 text-3xl font-black text-slate-950 dark:text-white">{value}</h3><p className="mt-2 text-xs text-slate-500 dark:text-slate-400">{sub}</p></div><div className="rounded-2xl bg-[#07162a] p-3 text-[#d4af37] dark:bg-white/10"><Icon size={24} /></div></div></Card></motion.div>;
+function BottomNav({ tab, setTab }) {
+  const tabs = [
+    ["Home", Home],
+    ["Jobs", ClipboardList],
+    ["Profile", UserRound],
+  ];
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/60 bg-white/90 p-3 backdrop-blur-xl">
+      <div className="mx-auto grid max-w-md grid-cols-3 gap-2">
+        {tabs.map(([name, Icon]) => (
+          <button
+            key={name}
+            onClick={() => setTab(name)}
+            className={cn(
+              "rounded-3xl px-3 py-3 text-xs font-black transition active:scale-95",
+              tab === name ? "bg-[#07162a] text-[#d4af37] shadow-lg" : "bg-slate-100 text-slate-500"
+            )}
+          >
+            <Icon className="mx-auto mb-1" size={18} />
+            {name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export default function FreshNestAdminDashboard() {
-  const [dark, setDark] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [active, setActive] = useState("Dashboard");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [bookings, setBookings] = useState(START_BOOKINGS);
-  const [staff, setStaff] = useState(START_STAFF);
-  const [inventory, setInventory] = useState(START_INVENTORY);
-  const [payroll, setPayroll] = useState(START_STAFF.map((s) => ({ id: s.id, name: s.name, salary: s.salary, advance: s.advance, bonus: 0 })));
-  const [services, setServices] = useState(START_SERVICES);
-  const [selectedBooking, setSelectedBooking] = useState(null);
-  const [showAddBooking, setShowAddBooking] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [calendarMonth, setCalendarMonth] = useState(new Date(2026, 4, 1));
-  const [staffForm, setStaffForm] = useState({ name: "", role: "Cleaner", salary: "20000" });
-  const [inventoryForm, setInventoryForm] = useState({ item: "", stock: "", min: "", unit: "pcs" });
-  const [payrollForm, setPayrollForm] = useState({ name: "", salary: "", advance: "0", bonus: "0" });
-  const [complaints, setComplaints] = useState([{ id: 1, customer: "Karthik", issue: "Staff reached late", status: "Open" }]);
-  const [complaintForm, setComplaintForm] = useState({ customer: "", issue: "" });
+function SwipeButton({ children, onClick, disabled = false, green = false }) {
+  return (
+    <button
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        "mt-4 w-full rounded-full px-5 py-4 text-center text-base font-black shadow-xl transition active:scale-[0.98]",
+        disabled ? "bg-slate-300 text-slate-500" : green ? "bg-emerald-600 text-white" : "bg-[#07162a] text-[#d4af37]"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
-  useEffect(() => {
-    try {
-      const q = query(collection(db, "bookings"));
-      const unsub = onSnapshot(q, (snapshot) => {
-        const items = snapshot.docs.map((docItem) => ({ firebaseId: docItem.id, ...docItem.data() }));
-        if (items.length) setBookings(items);
-      }, (error) => console.error("Firestore booking sync error:", error));
-      return () => unsub();
-    } catch (error) {
-      console.error("Firebase not connected:", error);
-    }
-  }, []);
+function UploadBox({ label, value, onChange }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-3 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 p-4">
+      <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl", value ? "bg-emerald-100 text-emerald-700" : "bg-white text-slate-500")}>
+        {value ? <CheckCircle2 size={22} /> : <Camera size={22} />}
+      </div>
+      <div className="flex-1">
+        <p className="font-black text-slate-900">{label}</p>
+        <p className="text-xs font-bold text-slate-500">{value ? value : "Tap to upload proof"}</p>
+      </div>
+      <input className="hidden" type="file" accept="image/*" onChange={(e) => onChange(e.target.files?.[0]?.name || "Uploaded photo")} />
+    </label>
+  );
+}
 
-  const confirmedStatuses = ["Confirmed", "On The Way", "Work Started", "Completed"];
-  const confirmedBookings = bookings.filter((b) => confirmedStatuses.includes(b.status));
-  const leadBookings = bookings.filter((b) => b.status === "New Lead" || b.status === "Pending");
+function ServiceImage({ job }) {
+  return (
+    <div className="relative h-40 overflow-hidden rounded-[1.75rem] bg-slate-200 shadow-xl">
+      <img src={SERVICE_PHOTOS[job.service] || SERVICE_PHOTOS["Deep Home Cleaning"]} alt={job.service} className="h-full w-full object-cover" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+      <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between text-white">
+        <div>
+          <p className="text-3xl">{job.icon}</p>
+          <h2 className="text-2xl font-black">{job.service}</h2>
+        </div>
+        <div className="rounded-2xl bg-white/95 px-3 py-2 text-sm font-black text-slate-900">{money(job.amount)}</div>
+      </div>
+    </div>
+  );
+}
 
-  const filteredBookings = useMemo(() => {
-    const text = searchQuery.toLowerCase();
-    return bookings.filter((b) => [b.id || b.firebaseId || "", b.customer || "", b.phone || "", b.area || "", b.service || "", b.status || "", b.source || ""].join(" ").toLowerCase().includes(text));
-  }, [bookings, searchQuery]);
+export default function FreshNestSupervisorPremiumApp() {
+  const [tab, setTab] = useState("Home");
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState({});
+  const [query, setQuery] = useState("");
+  const [staffList, setStaffList] = useState(DEFAULT_STAFF);
+  const [newStaff, setNewStaff] = useState("");
+  const [customExtra, setCustomExtra] = useState({ name: "", rate: "", qty: "" });
+  const [completedJobs, setCompletedJobs] = useState([]);
+  const [adminUpdates, setAdminUpdates] = useState([]);
+  const [jobStatusMap, setJobStatusMap] = useState({});
+  const [kmRate, setKmRate] = useState("10");
 
-  const totalRevenue = confirmedBookings.reduce((sum, b) => sum + safeAmount(b.amount), 0);
-  const completedRevenue = bookings.filter((b) => b.status === "Completed").reduce((sum, b) => sum + safeAmount(b.amount), 0);
-  const pending = bookings.filter((b) => b.status !== "Completed" && b.status !== "Cancelled").length;
-  const totalKm = bookings.reduce((sum, b) => {
-    const start = Number(b.startKm || 0);
-    const end = Number(b.returnKm || b.siteKm || b.pickupKm || 0);
-    return sum + Math.max(0, end - start);
-  }, 0);
-  const fuelExpense = Math.round((totalKm / 16) * 100);
-  const lowStock = inventory.filter((i) => Number(i.stock) <= Number(i.min));
-  const websiteLeads = bookings.filter((b) => (b.source || "").toLowerCase() === "website");
-  const appLeads = bookings.filter((b) => (b.source || "").toLowerCase() === "app");
-  const notifications = [...lowStock.map((i) => `Low stock: ${i.item} only ${i.stock} ${i.unit}`), `${leadBookings.length} new leads need call confirmation`, `${pending} jobs pending / running`, `Confirmed revenue ₹${totalRevenue.toLocaleString()}`];
+  const jobs = useMemo(() => {
+    return TODAY_JOBS.map((job) => ({ ...job, status: jobStatusMap[job.id] || job.status })).filter((j) =>
+      `${j.customer} ${j.service} ${j.id} ${j.address}`.toLowerCase().includes(query.toLowerCase())
+    );
+  }, [query, jobStatusMap]);
 
-  const nav = [["Dashboard", LayoutDashboard], ["Supervisor App", UserCheck], ["Live Bookings", ClipboardList], ["Firebase Sync", Bell], ["Calendar", CalendarDays], ["Customers CRM", Users], ["Customer History", Users], ["Complaints", ReceiptText], ["Services", Sparkles], ["Staff Performance", TrendingUp], ["Attendance", UserCheck], ["Payroll", Wallet], ["Inventory", Package], ["Expenses", ReceiptText], ["Payments", CreditCard], ["Reminders", Bell], ["Invoices", FileText], ["Marketing", TrendingUp], ["Profit Analysis", TrendingUp], ["Reports", ClipboardList], ["Audit Logs", CheckCircle2], ["Settings", Settings]];
+  const baseAmount = Number(form.baseAmount || selectedJob?.amount || 0);
+  const extraTotal = (form.extraWorks || []).reduce((sum, work) => sum + Number(work.amount || 0) * Number(work.qty || 0), 0);
+  const totalAmount = baseAmount + extraTotal;
+  const collected = completedJobs.reduce((sum, job) => sum + Number(job.total || 0), 0);
+  const dailyKm = useMemo(() => {
+    return completedJobs.reduce((sum, item) => sum + Number(item.totalKm || 0), 0);
+  }, [completedJobs]);
+  const dailyKmExpense = dailyKm * Number(kmRate || 0);
 
-  async function saveFirebasePatch(booking, patch) {
-    if (!booking?.firebaseId) return;
-    try { await updateDoc(doc(db, "bookings", booking.firebaseId), patch); } catch (e) { console.error("Firebase update failed", e); }
-  }
-
-  function updateBooking(id, patch) {
-    let target = null;
-    setBookings((prev) => prev.map((b) => {
-      if (b.id === id || b.firebaseId === id) { target = b; return { ...b, ...patch }; }
-      return b;
-    }));
-    setSelectedBooking((old) => (old && (old.id === id || old.firebaseId === id) ? { ...old, ...patch } : old));
-    setTimeout(() => saveFirebasePatch(target, patch), 0);
-  }
-
-  async function addBooking(form) {
-    const selectedItems = form.servicesList?.length ? form.servicesList : [{ service: form.service, qty: form.qty, amount: form.amount }];
-    const calculatedItems = selectedItems.map((item) => {
-      const service = services.find((s) => s.name === item.service) || services[0];
-      const qty = Math.max(1, Number(item.qty || 1));
-      const amount = service.name === "Balance Work" ? Number(item.amount || 0) : qty * Number(service.rate || 0);
-      return { service: service.name, qty, rate: service.rate, unit: service.unit, amount: Math.round(amount) };
+  function openJob(job) {
+    setSelectedJob(job);
+    setStep(0);
+    setForm({
+      jobId: job.id,
+      baseAmount: job.amount,
+      selectedStaff: [],
+      extraWorks: [],
+      machines: {},
+      status: job.status || "Assigned",
+      issueText: "",
+      paymentMode: "",
     });
-    const totalAmount = calculatedItems.reduce((sum, i) => sum + safeAmount(i.amount), 0);
-    const next = {
-      id: `FN-${1001 + bookings.length}`,
-      customer: form.customer || "New Customer", phone: form.phone || "", area: form.area || "Trichy", address: form.address || form.area || "Trichy", locationUrl: form.locationUrl || "",
-      service: calculatedItems.map((i) => i.service).join(" + "), servicesList: calculatedItems, qty: calculatedItems.reduce((s, i) => s + Number(i.qty || 0), 0), amount: totalAmount,
-      date: form.date || todayDate(), time: form.time || "10:00 AM", staff: form.staff || "Unassigned", supervisor: form.supervisor || "Unassigned", status: form.status || "New Lead", payment: "Pending", source: form.source || "Manual", startKm: "", pickupKm: "", siteKm: "", returnKm: "", balanceWork: form.balanceWork || "", confirmedAt: "",
+  }
+
+  function pushAdminUpdate(job, status, note = "") {
+    const updateItem = {
+      id: Date.now() + Math.random(),
+      jobId: job.id,
+      customer: job.customer,
+      phone: job.phone,
+      service: job.service,
+      status,
+      note,
+      time: getNowTime(),
+      total: totalAmount,
     };
-    setBookings((prev) => [next, ...prev]);
-    setSelectedBooking(next);
-    setShowAddBooking(false);
-    setActive("Live Bookings");
-    try { await addDoc(collection(db, "bookings"), { ...next, createdAt: serverTimestamp() }); } catch (e) { console.error("Firebase add failed", e); }
+    setAdminUpdates((old) => [updateItem, ...old]);
+    setJobStatusMap((old) => ({ ...old, [job.id]: status }));
+    setSelectedJob((old) => (old ? { ...old, status } : old));
+    setForm((old) => ({ ...old, status }));
   }
 
-  function confirmBooking(booking) {
-    updateBooking(getId(booking), { status: "Confirmed", confirmedAt: todayDate(), supervisor: booking.supervisor || booking.staff || "Unassigned" });
+  function update(key, value) {
+    setForm((old) => ({ ...old, [key]: value }));
   }
 
-  function addStaff() {
-    const name = staffForm.name.trim(); if (!name) return;
-    const newPerson = { id: Date.now(), name, role: staffForm.role || "Cleaner", status: "Present", salary: Number(staffForm.salary || 0), advance: 0 };
-    setStaff((prev) => [...prev, newPerson]);
-    setPayroll((prev) => [...prev, { id: Date.now() + 1, name, salary: Number(staffForm.salary || 0), advance: 0, bonus: 0 }]);
-    setStaffForm({ name: "", role: "Cleaner", salary: "20000" });
+  function next() {
+    setStep((old) => Math.min(old + 1, 9));
   }
 
-  function addInventory() {
-    if (!inventoryForm.item.trim()) return;
-    setInventory((prev) => [...prev, { id: Date.now(), item: inventoryForm.item, stock: Number(inventoryForm.stock || 0), min: Number(inventoryForm.min || 0), unit: inventoryForm.unit || "pcs" }]);
-    setInventoryForm({ item: "", stock: "", min: "", unit: "pcs" });
+  function back() {
+    setStep((old) => Math.max(old - 1, 0));
   }
 
-  function addPayroll() {
-    if (!payrollForm.name.trim()) return;
-    setPayroll((prev) => [...prev, { id: Date.now(), name: payrollForm.name, salary: Number(payrollForm.salary || 0), advance: Number(payrollForm.advance || 0), bonus: Number(payrollForm.bonus || 0) }]);
-    setPayrollForm({ name: "", salary: "", advance: "0", bonus: "0" });
+  function toggleStaff(name) {
+    setForm((old) => {
+      const selected = old.selectedStaff || [];
+      return {
+        ...old,
+        selectedStaff: selected.includes(name) ? selected.filter((x) => x !== name) : [...selected, name],
+      };
+    });
   }
 
-  function Login() { return <div className="min-h-screen bg-[#07162a] p-5 text-white"><div className="mx-auto flex min-h-[90vh] max-w-6xl items-center justify-center"><motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} className="grid w-full overflow-hidden rounded-[2rem] bg-white/10 shadow-2xl md:grid-cols-2"><div className="p-10"><div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-white text-4xl">🧹</div><h1 className="text-5xl font-black">FreshNest Admin ERP</h1><p className="mt-4 max-w-md text-white/70">Website lead confirmation, calendar, supervisor assign, revenue and profit dashboard.</p></div><div className="bg-white p-8 text-slate-950"><h2 className="text-3xl font-black">Admin Login</h2><p className="mt-2 text-sm text-slate-500">Demo credentials already filled.</p><div className="mt-8 grid gap-4"><input value="admin@freshnest.in" readOnly className="rounded-2xl border border-slate-200 px-4 py-3" /><input value="freshnest123" readOnly type="password" className="rounded-2xl border border-slate-200 px-4 py-3" /><button onClick={() => setLoggedIn(true)} className="rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]">Login</button></div></div></motion.div></div></div>; }
+  function toggleMachine(name) {
+    setForm((old) => ({
+      ...old,
+      machines: { ...(old.machines || {}), [name]: !old.machines?.[name] },
+    }));
+  }
 
-  function Shell({ children }) { return <div className={dark ? "dark" : ""}><div className="min-h-screen bg-slate-50 text-slate-950 dark:bg-[#06111f] dark:text-white"><aside className="fixed left-0 top-0 hidden h-full w-72 overflow-y-auto bg-[#07162a] p-4 text-white lg:block"><div className="mb-5 flex items-center gap-3 rounded-3xl bg-white/10 p-4"><div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-2xl">🧹</div><div><h1 className="font-black">FreshNest</h1><p className="text-xs text-[#d4af37]">Admin ERP</p></div></div><nav className="space-y-1 pb-6">{nav.map(([name, Icon]) => <button key={name} onClick={() => setActive(name)} className={cn("flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-bold", active === name ? "bg-[#d4af37] text-[#07162a]" : "text-white/75 hover:bg-white/10")}><Icon size={18} /> {name}</button>)}</nav></aside><main className="lg:pl-72"><header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 px-4 py-4 backdrop-blur dark:border-slate-800 dark:bg-[#06111f]/90"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-black">{active}</h2><p className="text-sm text-slate-500 dark:text-slate-400">FreshNest Cleaning Services • Trichy</p></div><div className="flex flex-wrap items-center gap-2"><div className="relative"><Search className="absolute left-3 top-2.5 text-slate-400" size={18} /><input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Search jobs..." className="w-64 rounded-2xl border border-slate-200 bg-white py-2 pl-10 pr-4 outline-none focus:border-[#d4af37] dark:border-slate-700 dark:bg-slate-950" /></div><button onClick={() => setShowAddBooking(true)} className="rounded-2xl bg-[#07162a] px-4 py-2 text-sm font-black text-[#d4af37] dark:bg-[#d4af37] dark:text-[#07162a]"><Plus size={16} className="inline" /> Add Job</button><button onClick={() => setDark((v) => !v)} className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 font-bold dark:border-[#d4af37] dark:bg-[#d4af37] dark:text-[#07162a]">{dark ? <Sun size={18} /> : <Moon size={18} />} {dark ? "Bright" : "Night"}</button><div className="relative"><button onClick={() => setShowNotifications((v) => !v)} className="relative rounded-2xl border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-950"><Bell /><span className="absolute -right-1 -top-1 rounded-full bg-[#d4af37] px-1 text-[10px] font-black text-[#07162a]">{notifications.length}</span></button>{showNotifications && <div className="absolute right-0 top-12 z-50 w-80 rounded-3xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-800 dark:bg-slate-950"><div className="mb-2 flex justify-between"><b>Notifications</b><button onClick={() => setShowNotifications(false)}><X size={16} /></button></div>{notifications.map((n, i) => <div key={i} className="mb-2 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800">🔔 {n}</div>)}</div>}</div></div></div></header><div className="p-4 pb-24 md:p-6 md:pb-28">{children}</div></main>{showAddBooking && <AddBookingModal onClose={() => setShowAddBooking(false)} onSave={addBooking} />}{selectedBooking && <BookingDrawer booking={selectedBooking} onClose={() => setSelectedBooking(null)} />}</div></div>; }
+  function addExtra(work) {
+    setForm((old) => {
+      const existing = (old.extraWorks || []).find((item) => item.name === work.name);
+      if (existing) {
+        return {
+          ...old,
+          extraWorks: (old.extraWorks || []).map((item) =>
+            item.name === work.name ? { ...item, qty: Number(item.qty || 1) + 1 } : item
+          ),
+        };
+      }
+      return {
+        ...old,
+        extraWorks: [...(old.extraWorks || []), { ...work, qty: 1, lineId: Date.now() + Math.random() }],
+      };
+    });
+  }
 
-  function Dashboard() { return <div className="space-y-6"><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Confirmed Revenue" value={`₹${totalRevenue.toLocaleString()}`} icon={IndianRupee} sub="Only confirmed/running/completed" /><StatCard title="Completed Revenue" value={`₹${completedRevenue.toLocaleString()}`} icon={CheckCircle2} sub="Completed jobs" /><StatCard title="New Leads" value={leadBookings.length} icon={ClipboardList} sub="Call and confirm" /><StatCard title="Fuel Expense" value={`₹${fuelExpense}`} icon={TrendingUp} sub={`${totalKm} km • 16 km = ₹100`} /></div><div className="grid gap-4 xl:grid-cols-3"><Card className="xl:col-span-2"><div className="mb-4 flex items-center justify-between"><h3 className="text-lg font-black">Live Job Flow</h3><span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold dark:bg-slate-800">{bookings.length} Jobs</span></div><BookingTable compact /></Card><Card><h3 className="mb-4 text-lg font-black">New Website/App Leads</h3>{leadBookings.slice(0, 5).map((b) => <button key={getId(b)} onClick={() => setSelectedBooking(b)} className="mb-2 w-full rounded-2xl bg-slate-100 p-3 text-left text-sm dark:bg-slate-800"><b>{b.customer}</b><p>{b.source} • {b.phone}</p><Badge>{b.status}</Badge></button>)}</Card></div></div>; }
+  function updateExtraQty(lineId, qty) {
+    const safeQty = Math.max(0, Number(qty || 0));
+    setForm((old) => ({
+      ...old,
+      extraWorks: (old.extraWorks || []).map((item) =>
+        item.lineId === lineId ? { ...item, qty: safeQty } : item
+      ),
+    }));
+  }
 
-  function BookingTable({ compact = false }) { const rows = compact ? filteredBookings.slice(0, 6) : filteredBookings; return <div className="overflow-x-auto"><table className="w-full min-w-[1100px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-slate-500 dark:border-slate-800">{["ID", "Customer", "Source", "Service", "Date", "Supervisor", "Status", "Payment", "Amount", "Action"].map((h) => <th key={h} className="py-3 pr-4">{h}</th>)}</tr></thead><tbody>{rows.map((b) => <tr key={getId(b)} className="border-b border-slate-100 dark:border-slate-800"><td className="py-3 pr-4 font-black">{b.id || b.firebaseId}</td><td className="py-3 pr-4"><b>{b.customer}</b><p className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12} />{b.phone}</p></td><td className="py-3 pr-4"><Badge>{b.source || "Manual"}</Badge></td><td className="py-3 pr-4">{b.service}<p className="text-xs text-slate-500">Qty: {b.qty}</p></td><td className="py-3 pr-4">{b.date}<p className="text-xs text-slate-500">{b.time}</p></td><td className="py-3 pr-4">{b.supervisor || b.staff || "Unassigned"}</td><td className="py-3 pr-4"><Badge>{b.status}</Badge></td><td className="py-3 pr-4"><Badge>{b.payment}</Badge></td><td className="py-3 pr-4 font-black">₹{safeAmount(b.amount).toLocaleString()}</td><td className="py-3 pr-4"><button onClick={() => setSelectedBooking(b)} className="rounded-xl bg-[#07162a] px-3 py-2 text-xs font-black text-[#d4af37]">Open / Confirm</button></td></tr>)}</tbody></table></div>; }
+  function removeExtra(lineId) {
+    setForm((old) => ({ ...old, extraWorks: (old.extraWorks || []).filter((w) => w.lineId !== lineId) }));
+  }
 
-  function Jobs() { return <Card><div className="mb-4 flex items-center justify-between"><h3 className="text-xl font-black">All Jobs & Leads</h3><button onClick={() => setShowAddBooking(true)} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Job</button></div><BookingTable /></Card>; }
-  function SupervisorApp() { return <div className="grid gap-4 xl:grid-cols-2">{confirmedBookings.map((b) => <Card key={getId(b)}><div className="flex items-start justify-between gap-3"><div><h3 className="text-xl font-black">{b.customer}</h3><p className="text-sm text-slate-500"><MapPin size={14} className="inline" /> {b.area} • {b.service}</p><p className="text-xs text-slate-500">Supervisor: {b.supervisor || b.staff || "Unassigned"}</p></div><Badge>{b.status}</Badge></div><div className="mt-4 grid gap-2 md:grid-cols-4">{["Confirmed", "On The Way", "Work Started", "Completed"].map((step) => <button key={step} onClick={() => updateBooking(getId(b), { status: step })} className="rounded-2xl bg-slate-100 px-3 py-3 text-sm font-black hover:bg-[#d4af37] dark:bg-slate-800">{step}</button>)}</div><button onClick={() => setSelectedBooking(b)} className="mt-3 w-full rounded-2xl bg-[#07162a] px-4 py-3 font-black text-[#d4af37]">Open Full Workflow</button></Card>)}</div>; }
+  function addCustomExtra() {
+    const name = customExtra.name.trim();
+    const rate = Number(customExtra.rate || 0);
+    const qty = Number(customExtra.qty || 0);
+    if (!name || !rate || !qty) return;
+    setForm((old) => ({
+      ...old,
+      extraWorks: [
+        ...(old.extraWorks || []),
+        { name, amount: rate, unit: "/ custom", inputLabel: "Qty", qty, lineId: Date.now() + Math.random() },
+      ],
+    }));
+    setCustomExtra({ name: "", rate: "", qty: "" });
+  }
 
-  function CalendarView() { const year = calendarMonth.getFullYear(); const month = calendarMonth.getMonth(); const firstDay = new Date(year, month, 1).getDay(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const cells = Array.from({ length: firstDay }, () => null).concat(Array.from({ length: daysInMonth }, (_, i) => i + 1)); const title = calendarMonth.toLocaleString("default", { month: "long", year: "numeric" }); const moveMonth = (step) => setCalendarMonth(new Date(year, month + step, 1)); return <div className="grid gap-4 xl:grid-cols-[1.4fr_.6fr]"><Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-2xl font-black">{title}</h3><div className="flex gap-2"><button onClick={() => moveMonth(-1)} className="rounded-2xl border p-2 dark:border-slate-700"><ChevronLeft /></button><button onClick={() => setCalendarMonth(new Date())} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]">Today</button><button onClick={() => moveMonth(1)} className="rounded-2xl border p-2 dark:border-slate-700"><ChevronRight /></button></div></div><div className="grid grid-cols-7 gap-2 text-center text-xs font-black text-slate-500">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => <div key={d}>{d}</div>)}</div><div className="mt-2 grid grid-cols-7 gap-2">{cells.map((day, index) => { if (!day) return <div key={`e-${index}`} className="min-h-24 rounded-2xl bg-slate-50 dark:bg-slate-800/40" />; const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`; const list = confirmedBookings.filter((b) => b.date === date); return <button key={date} className="min-h-24 rounded-2xl border border-slate-200 p-2 text-left hover:border-[#d4af37] dark:border-slate-800"><b>{day}</b>{list.map((b) => <p key={getId(b)} className="mt-1 truncate rounded-lg bg-slate-100 px-2 py-1 text-xs dark:bg-slate-800">{b.customer} • {b.status}</p>)}</button>; })}</div></Card><Card><h3 className="mb-3 text-xl font-black">Confirmed Month Bookings</h3><div className="space-y-2">{confirmedBookings.filter((b) => String(b.date || "").startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)).map((b) => <button key={getId(b)} onClick={() => setSelectedBooking(b)} className="w-full rounded-2xl bg-slate-100 p-3 text-left text-sm dark:bg-slate-800"><b>{b.customer}</b><p className="text-slate-500">{b.date} • {b.service}</p><Badge>{b.status}</Badge></button>)}</div></Card></div>; }
+  function addStaffName() {
+    const name = newStaff.trim();
+    if (!name) return;
+    setStaffList((old) => (old.includes(name) ? old : [...old, name]));
+    setNewStaff("");
+  }
 
-  function Services() { return <div className="space-y-4"><Card><div className="flex items-center justify-between"><div><h3 className="text-2xl font-black">Services & Rate Edit</h3><p className="text-sm text-slate-500">Rate edit affects new booking amount calculation.</p></div><button onClick={() => setServices((prev) => [...prev, { id: Date.now(), name: "New Service", rate: 0, unit: "unit", icon: "✨", category: "Custom" }])} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Service</button></div></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{services.map((s) => <Card key={s.id}><div className="text-5xl">{s.icon}</div><Field label="Service Name" value={s.name} onChange={(v) => setServices((prev) => prev.map((i) => i.id === s.id ? { ...i, name: v } : i))} /><div className="mt-3 grid grid-cols-2 gap-3"><Field label="Rate" type="number" value={s.rate} onChange={(v) => setServices((prev) => prev.map((i) => i.id === s.id ? { ...i, rate: Number(v || 0) } : i))} /><Field label="Unit" value={s.unit} onChange={(v) => setServices((prev) => prev.map((i) => i.id === s.id ? { ...i, unit: v } : i))} /></div><p className="mt-3 text-sm text-slate-500">{s.category}</p></Card>)}</div></div>; }
-  function Staff() { return <div className="space-y-4"><Card><h3 className="mb-4 text-xl font-black">Add Staff Full Name</h3><div className="grid gap-3 md:grid-cols-4"><input value={staffForm.name} onChange={(e) => setStaffForm((old) => ({ ...old, name: e.target.value }))} placeholder="Full name" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-slate-700 dark:bg-slate-950 md:col-span-2" /><input value={staffForm.role} onChange={(e) => setStaffForm((old) => ({ ...old, role: e.target.value }))} placeholder="Role" className="rounded-2xl border border-slate-200 bg-white px-4 py-3 outline-none dark:border-slate-700 dark:bg-slate-950" /><button onClick={addStaff} className="rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]">Add Staff</button></div></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{staff.map((p) => <Card key={p.id}><h3 className="text-xl font-black">{p.name}</h3><p className="text-sm text-slate-500">{p.role}</p><div className="mt-3"><Badge>{p.status}</Badge></div><p className="mt-4 text-sm">Salary: <b>₹{p.salary}</b></p></Card>)}</div></div>; }
-  function Inventory() { return <Card><div className="mb-4 flex items-center justify-between"><h3 className="text-xl font-black">Inventory</h3><button onClick={addInventory} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Item</button></div><div className="mb-4 grid gap-3 md:grid-cols-5"><input value={inventoryForm.item} onChange={(e) => setInventoryForm((old) => ({ ...old, item: e.target.value }))} placeholder="Item name" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /><input value={inventoryForm.stock} onChange={(e) => setInventoryForm((old) => ({ ...old, stock: e.target.value }))} placeholder="Stock" type="number" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /><input value={inventoryForm.min} onChange={(e) => setInventoryForm((old) => ({ ...old, min: e.target.value }))} placeholder="Min" type="number" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /><input value={inventoryForm.unit} onChange={(e) => setInventoryForm((old) => ({ ...old, unit: e.target.value }))} placeholder="Unit" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /></div><div className="grid gap-3">{inventory.map((i) => <div key={i.id} className="flex items-center justify-between rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div><b>{i.item}</b><p className="text-sm text-slate-500">Min: {i.min} {i.unit}</p></div><div className="text-xl font-black">{i.stock} {i.unit}</div></div>)}</div></Card>; }
-  function Payroll() { return <Card><div className="mb-4 flex items-center justify-between"><h3 className="text-2xl font-black">Payroll</h3><button onClick={addPayroll} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Payroll</button></div><div className="mb-4 grid gap-3 md:grid-cols-4"><input value={payrollForm.name} onChange={(e) => setPayrollForm((old) => ({ ...old, name: e.target.value }))} placeholder="Staff name" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /><input value={payrollForm.salary} onChange={(e) => setPayrollForm((old) => ({ ...old, salary: e.target.value }))} placeholder="Salary" type="number" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /><input value={payrollForm.advance} onChange={(e) => setPayrollForm((old) => ({ ...old, advance: e.target.value }))} placeholder="Advance" type="number" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /><input value={payrollForm.bonus} onChange={(e) => setPayrollForm((old) => ({ ...old, bonus: e.target.value }))} placeholder="Bonus" type="number" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /></div><div className="grid gap-3">{payroll.map((p) => <div key={p.id} className="grid gap-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800 md:grid-cols-5"><b>{p.name}</b><span>Salary ₹{p.salary}</span><span>Advance ₹{p.advance}</span><span>Bonus ₹{p.bonus}</span><span>Balance ₹{Number(p.salary) + Number(p.bonus) - Number(p.advance)}</span></div>)}</div></Card>; }
-  function Payments() { return <Card><h3 className="mb-4 text-xl font-black">Payments</h3><div className="grid gap-3">{bookings.map((b) => <div key={getId(b)} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div><b>{b.customer}</b><p className="text-sm text-slate-500">{b.id} • {b.service}</p></div><b>₹{b.amount}</b><Badge>{b.payment}</Badge><button onClick={() => updateBooking(getId(b), { payment: "Paid" })} className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white">Mark Paid</button></div>)}</div></Card>; }
-  function Invoices() { return <div className="space-y-4"><Card><h3 className="text-2xl font-black">Invoices</h3><p className="text-sm text-slate-500">Confirmed and completed bookings invoice list.</p></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{confirmedBookings.map((b) => <Card key={getId(b)}><div className="flex items-start justify-between"><div><h3 className="text-xl font-black">Invoice {b.id}</h3><p className="text-sm text-slate-500">{b.customer}</p></div><FileText className="text-[#d4af37]" /></div><div className="mt-4 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><p>{b.service}</p><p>Qty: {b.qty}</p><p>Payment: {b.payment}</p><p className="mt-2 text-2xl font-black">₹{safeAmount(b.amount).toLocaleString()}</p></div></Card>)}</div></div>; }
-  function Expenses() { return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Total KM" value={`${totalKm} km`} icon={TrendingUp} sub="From job KM entries" /><StatCard title="Fuel Expense" value={`₹${fuelExpense}`} icon={ReceiptText} sub="16km = ₹100" /><StatCard title="Low Stock" value={lowStock.length} icon={Package} sub="Purchase needed" /><StatCard title="Pending Jobs" value={pending} icon={ClipboardList} sub="Team payout pending" /></div>; }
-  function SettingsView() { return <Card><h3 className="text-xl font-black">Settings</h3><div className="mt-4 grid gap-3 md:grid-cols-2"><input value="FreshNest Cleaning Services" readOnly className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950" /><input value="Trichy" readOnly className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950" /><input value="Owners: Neethirajan & Selva Kumar" readOnly className="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950 md:col-span-2" /></div></Card>; }
+  function finishJob() {
+    const startKm = Number(form.vehicleKm || 0);
+    const endKm = Number(form.returnKm || form.staffDropKm || 0);
+    const totalKm = Math.max(0, endKm - startKm);
+    const expense = totalKm * Number(kmRate || 0);
+    pushAdminUpdate(selectedJob, "Completed", `Payment: ${form.paymentMode} | Total: ${money(totalAmount)} | KM: ${totalKm} | Expense: ${money(expense)}`);
+    setCompletedJobs((old) => [...old, { id: selectedJob.id, customer: selectedJob.customer, total: totalAmount, totalKm, expense }]);
+    setSelectedJob(null);
+    setTab("Home");
+  }
 
-  function AddBookingModal({ onClose, onSave }) { const [form, setForm] = useState({ customer: "", phone: "", area: "Trichy", address: "", locationUrl: "", date: todayDate(), time: "10:00 AM", staff: "Unassigned", supervisor: "Unassigned", source: "Website", balanceWork: "", servicesList: [{ id: 1, service: services[0].name, qty: 1, amount: "" }] }); const set = (key, value) => setForm((old) => ({ ...old, [key]: value })); const updateServiceRow = (id, key, value) => setForm((old) => ({ ...old, servicesList: old.servicesList.map((row) => row.id === id ? { ...row, [key]: value } : row) })); const addServiceRow = () => setForm((old) => ({ ...old, servicesList: [...old.servicesList, { id: Date.now(), service: services[0].name, qty: 1, amount: "" }] })); const removeServiceRow = (id) => setForm((old) => ({ ...old, servicesList: old.servicesList.length === 1 ? old.servicesList : old.servicesList.filter((row) => row.id !== id) })); const rowAmount = (row) => { const selected = services.find((s) => s.name === row.service) || services[0]; return selected.name === "Balance Work" ? Number(row.amount || 0) : Math.round(Number(row.qty || 1) * Number(selected.rate || 0)); }; const totalAmount = form.servicesList.reduce((sum, row) => sum + rowAmount(row), 0); return <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 backdrop-blur-sm"><motion.div initial={{ scale: 0.96, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl dark:bg-slate-950"><div className="mb-4 flex items-center justify-between"><div><h3 className="text-2xl font-black">Add Website/App Lead</h3><p className="text-sm text-slate-500">Save as New Lead. After call, open and confirm.</p></div><button onClick={onClose} className="rounded-2xl border border-slate-200 p-2 dark:border-slate-800"><X /></button></div><div className="grid gap-4 md:grid-cols-2"><Field label="Customer" value={form.customer} onChange={(v) => set("customer", v)} /><Field label="Phone" value={form.phone} onChange={(v) => set("phone", v.replace(/[^0-9]/g, ""))} /><Field label="Area" value={form.area} onChange={(v) => set("area", v)} /><Field label="Address" value={form.address} onChange={(v) => set("address", v)} /><Field label="Google Map Location URL" value={form.locationUrl} onChange={(v) => set("locationUrl", v)} placeholder="https://maps.google.com/..." /><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Source<select value={form.source} onChange={(e) => set("source", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Website</option><option>App</option><option>WhatsApp</option><option>Instagram</option><option>Google</option><option>Manual</option></select></label><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Assign Supervisor<select value={form.supervisor} onChange={(e) => set("supervisor", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Unassigned</option>{staff.map((p) => <option key={p.id}>{p.name}</option>)}</select></label><Field label="Date" type="date" value={form.date} onChange={(v) => set("date", v)} /><Field label="Time" value={form.time} onChange={(v) => set("time", v)} /></div><Card className="mt-5 bg-slate-50 dark:bg-slate-900"><div className="mb-4 flex items-center justify-between"><h4 className="text-lg font-black">Services / Change Work</h4><button onClick={addServiceRow} className="rounded-2xl bg-[#07162a] px-4 py-2 text-sm font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Service</button></div><div className="grid gap-3">{form.servicesList.map((row) => { const selected = services.find((s) => s.name === row.service) || services[0]; const amount = rowAmount(row); return <div key={row.id} className="grid gap-3 rounded-2xl bg-white p-3 dark:bg-slate-950 md:grid-cols-[1.5fr_.7fr_.7fr_auto]"><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Service<select value={row.service} onChange={(e) => updateServiceRow(row.id, "service", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">{services.map((s) => <option key={s.id}>{s.name}</option>)}</select></label><Field label={`Qty / ${selected.unit}`} type="number" value={row.qty} onChange={(v) => updateServiceRow(row.id, "qty", v)} /><Field label="Manual Amount" type="number" value={row.amount} onChange={(v) => updateServiceRow(row.id, "amount", v)} placeholder="Balance work" /><div className="flex items-end gap-2"><div className="rounded-2xl bg-slate-100 px-4 py-2 text-sm font-black dark:bg-slate-800">₹{amount.toLocaleString()}</div><button onClick={() => removeServiceRow(row.id)} className="rounded-2xl border border-red-200 p-2 text-red-600"><Trash2 size={18} /></button></div></div>; })}</div><Field label="Extra / Balance Work Notes" value={form.balanceWork} onChange={(v) => set("balanceWork", v)} /></Card><div className="mt-5 rounded-3xl bg-slate-100 p-4 dark:bg-slate-800"><p className="text-sm text-slate-500">Total Lead Amount</p><p className="text-3xl font-black">₹{totalAmount.toLocaleString()}</p></div><div className="mt-5 grid gap-3 md:grid-cols-2"><button onClick={onClose} className="rounded-2xl border border-slate-200 px-5 py-3 font-black dark:border-slate-800">Cancel</button><button onClick={() => onSave({ ...form, amount: totalAmount })} className="rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]">Save Lead</button></div></motion.div></div>; }
+  const canNext = {
+    0: !!form.startKm,
+    1: (form.selectedStaff || []).length > 0 && !!form.pickupKm && !!form.pickupTime,
+    2: !!form.siteKm && !!form.siteTime && !!form.siteSelfie && !!form.machinePhoto,
+    3: true,
+    4: true,
+    5: !!form.finishPhoto,
+    6: !!form.paymentMode,
+    7: MACHINE_ITEMS.every((item) => form.machines?.[item]),
+    8: !!form.siteLeaveKm,
+    9: !!form.staffDropKm && !!form.staffDropTime,
+  };
 
-  function BookingDrawer({ booking, onClose }) { const [edit, setEdit] = useState(() => ({ ...booking, servicesList: booking.servicesList?.length ? booking.servicesList : [{ service: booking.service, qty: booking.qty || 1, amount: booking.amount || 0 }] })); useEffect(() => setEdit({ ...booking, servicesList: booking.servicesList?.length ? booking.servicesList : [{ service: booking.service, qty: booking.qty || 1, amount: booking.amount || 0 }] }), [booking]); const patchEdit = (key, value) => setEdit((old) => ({ ...old, [key]: value })); const updateRow = (index, key, value) => setEdit((old) => ({ ...old, servicesList: old.servicesList.map((row, i) => i === index ? { ...row, [key]: value } : row) })); const addRow = () => setEdit((old) => ({ ...old, servicesList: [...old.servicesList, { service: services[0].name, qty: 1, amount: "" }] })); const removeRow = (index) => setEdit((old) => ({ ...old, servicesList: old.servicesList.length === 1 ? old.servicesList : old.servicesList.filter((_, i) => i !== index) })); const calcRow = (row) => { const selected = services.find((s) => s.name === row.service) || services[0]; return selected.name === "Balance Work" ? Number(row.amount || 0) : Math.round(Number(row.qty || 1) * Number(selected.rate || 0)); }; const calcServices = edit.servicesList.map((row) => { const selected = services.find((s) => s.name === row.service) || services[0]; return { service: selected.name, qty: Math.max(1, Number(row.qty || 1)), rate: selected.rate, unit: selected.unit, amount: calcRow(row) }; }); const total = calcServices.reduce((sum, item) => sum + safeAmount(item.amount), 0); const kmStart = Number(edit.startKm || 0); const kmEnd = Number(edit.returnKm || edit.siteKm || edit.pickupKm || 0); const km = Math.max(0, kmEnd - kmStart); const expense = Math.round((km / 16) * 100); const saveChanges = (extra = {}) => { const patch = { ...edit, ...extra, servicesList: calcServices, service: calcServices.map((i) => i.service).join(" + "), qty: calcServices.reduce((s, i) => s + Number(i.qty || 0), 0), amount: total }; updateBooking(getId(booking), patch); };
-    return <div className="fixed inset-0 z-50 flex justify-end bg-black/50 p-3 backdrop-blur-sm"><motion.div initial={{ x: 420, opacity: 0 }} animate={{ x: 0, opacity: 1 }} className="h-full w-full max-w-2xl overflow-y-auto rounded-[2rem] bg-white p-5 shadow-2xl dark:bg-slate-950"><div className="sticky top-0 mb-4 flex items-center justify-between bg-white/90 pb-3 backdrop-blur dark:bg-slate-950/90"><div><h3 className="text-2xl font-black">{edit.customer}</h3><p className="text-sm text-slate-500">{edit.id || edit.firebaseId} • {edit.source || "Manual"}</p></div><button onClick={onClose} className="rounded-2xl border border-slate-200 p-2 dark:border-slate-800"><X /></button></div><div className="grid gap-4"><Card><div className="mb-3 flex items-center justify-between"><h4 className="font-black">Call Confirm & Edit Booking</h4><Badge>{edit.status}</Badge></div><div className="grid gap-3 md:grid-cols-2"><Field label="Customer" value={edit.customer} onChange={(v) => patchEdit("customer", v)} /><Field label="Phone" value={edit.phone} onChange={(v) => patchEdit("phone", v.replace(/[^0-9]/g, ""))} /><Field label="Area" value={edit.area} onChange={(v) => patchEdit("area", v)} /><Field label="Address" value={edit.address} onChange={(v) => patchEdit("address", v)} /><Field label="Date" type="date" value={edit.date} onChange={(v) => patchEdit("date", v)} /><Field label="Time" value={edit.time} onChange={(v) => patchEdit("time", v)} /><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Assign Supervisor<select value={edit.supervisor || edit.staff || "Unassigned"} onChange={(e) => { patchEdit("supervisor", e.target.value); patchEdit("staff", e.target.value); }} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Unassigned</option>{staff.map((p) => <option key={p.id}>{p.name}</option>)}</select></label><label className="grid gap-1 text-sm font-bold text-slate-700 dark:text-slate-200">Status<select value={edit.status} onChange={(e) => patchEdit("status", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>New Lead</option><option>Pending</option><option>Confirmed</option><option>On The Way</option><option>Work Started</option><option>Completed</option><option>Cancelled</option></select></label></div><div className="mt-3 grid gap-2 md:grid-cols-3"><button onClick={() => window.open(`tel:${edit.phone}`)} className="rounded-2xl bg-emerald-600 px-4 py-3 font-black text-white"><Phone size={16} className="inline" /> Call</button>{edit.locationUrl && <button onClick={() => window.open(edit.locationUrl, "_blank", "noopener,noreferrer")} className="rounded-2xl bg-blue-600 px-4 py-3 font-black text-white">Map</button>}<button onClick={() => saveChanges({ status: "Confirmed", confirmedAt: todayDate() })} className="rounded-2xl bg-[#07162a] px-4 py-3 font-black text-[#d4af37]"><CheckCircle2 size={16} className="inline" /> Confirm Booking</button></div></Card><Card><div className="mb-3 flex items-center justify-between"><h4 className="font-black">Change / Additional Work</h4><button onClick={addRow} className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-black dark:bg-slate-800"><Plus size={14} className="inline" /> Add</button></div><div className="grid gap-3">{edit.servicesList.map((row, index) => { const selected = services.find((s) => s.name === row.service) || services[0]; return <div key={index} className="grid gap-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800 md:grid-cols-[1.5fr_.7fr_.7fr_auto]"><label className="grid gap-1 text-sm font-bold">Service<select value={row.service} onChange={(e) => updateRow(index, "service", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950">{services.map((s) => <option key={s.id}>{s.name}</option>)}</select></label><Field label={`Qty / ${selected.unit}`} type="number" value={row.qty} onChange={(v) => updateRow(index, "qty", v)} /><Field label="Manual Amount" type="number" value={row.amount} onChange={(v) => updateRow(index, "amount", v)} /><button onClick={() => removeRow(index)} className="mt-6 rounded-2xl border border-red-200 p-2 text-red-600"><Trash2 size={18} /></button></div>; })}</div><Field label="Balance / Extra Work Notes" value={edit.balanceWork || ""} onChange={(v) => patchEdit("balanceWork", v)} /><div className="mt-4 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><p className="text-sm text-slate-500">Confirmed Total</p><p className="text-3xl font-black">₹{total.toLocaleString()}</p></div><button onClick={() => saveChanges()} className="mt-3 w-full rounded-2xl bg-[#07162a] px-4 py-3 font-black text-[#d4af37]"><Edit3 size={16} className="inline" /> Save Changes</button></Card><Card><h4 className="mb-3 font-black">Payment & KM Workflow</h4><div className="grid gap-3 md:grid-cols-2"><label className="grid gap-1 text-sm font-bold">Payment<select value={edit.payment} onChange={(e) => patchEdit("payment", e.target.value)} className="rounded-2xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Pending</option><option>Advance Paid</option><option>Paid</option></select></label><Field label="Google Map URL" value={edit.locationUrl || ""} onChange={(v) => patchEdit("locationUrl", v)} /><Field label="Start KM" type="number" value={edit.startKm} onChange={(v) => patchEdit("startKm", v)} /><Field label="Pickup KM" type="number" value={edit.pickupKm} onChange={(v) => patchEdit("pickupKm", v)} /><Field label="Site Reach KM" type="number" value={edit.siteKm} onChange={(v) => patchEdit("siteKm", v)} /><Field label="Return / Drop KM" type="number" value={edit.returnKm} onChange={(v) => patchEdit("returnKm", v)} /></div><div className="mt-4 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><b>Total:</b> {km} km • <b>Expense:</b> ₹{expense}</div><button onClick={() => saveChanges()} className="mt-3 w-full rounded-2xl bg-emerald-600 px-4 py-3 font-black text-white">Save Payment / KM</button></Card></div></motion.div></div>; }
+  function HomeScreen() {
+    return (
+      <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#f7d774,transparent_28%),linear-gradient(135deg,#f8fafc,#dbeafe,#07162a)] p-4 pb-28">
+        <div className="mx-auto max-w-md space-y-4">
+          <Card className="relative overflow-hidden border-0 bg-white/95 shadow-2xl">
+            <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full bg-[#d4af37]/30" />
+            <div className="relative flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-black text-blue-700">FreshNest Supervisor</p>
+                <h1 className="mt-1 text-4xl font-black leading-tight text-slate-950">Today's Assignments</h1>
+                <p className="mt-2 text-sm font-bold text-slate-500">Premium field control app</p>
+              </div>
+              <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-[#07162a] text-3xl shadow-xl">🧹</div>
+            </div>
+            <div className="relative mt-5 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-3xl bg-blue-50 p-3"><b className="text-2xl">{TODAY_JOBS.length}</b><p className="text-xs font-bold text-slate-500">Works</p></div>
+              <div className="rounded-3xl bg-emerald-50 p-3"><b className="text-2xl">{money(collected)}</b><p className="text-xs font-bold text-slate-500">Collected</p></div>
+              <div className="rounded-3xl bg-amber-50 p-3"><b className="text-2xl">{Math.max(0, TODAY_JOBS.length - completedJobs.length)}</b><p className="text-xs font-bold text-slate-500">Pending</p></div>
+            </div>
+          </Card>
 
-  function FirebaseSync() { return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="text-2xl font-black">Firebase Sync</h3><p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Admin dashboard listens to bookings collection. Website/App leads will appear here if saved to same collection.</p><div className="mt-5 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><p className="text-sm text-slate-500">Status</p><p className="text-2xl font-black text-emerald-600">Safe Sync Enabled</p></div><button onClick={() => addBooking({ customer: "Website Lead Customer", phone: "9666677777", area: "KK Nagar", address: "Website booking address", locationUrl: "https://maps.google.com/?q=KK+Nagar+Trichy", servicesList: [{ service: "Water Tank Cleaning", qty: 1500, amount: "" }], supervisor: "Unassigned", source: "Website", date: todayDate(), time: "11:00 AM" })} className="mt-5 rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]">Simulate Website Booking</button></Card><Card><h3 className="text-xl font-black">Lead Flow</h3><div className="mt-4 grid gap-3"><div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">1. Website/App booking saves as <b>New Lead</b></div><div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">2. Call customer and edit service/change/additional work</div><div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">3. Assign supervisor and click <b>Confirm Booking</b></div><div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">4. Confirmed booking shows in Calendar and Revenue</div></div></Card></div>; }
-  function CustomersCRM() { return <Card><h3 className="mb-4 text-2xl font-black">Customers CRM</h3><BookingTable /></Card>; }
-  function CustomerHistory() { const phones = [...new Set(bookings.map((b) => b.phone).filter(Boolean))]; return <div className="grid gap-4">{phones.map((phone) => { const list = bookings.filter((b) => b.phone === phone); const first = list[0]; return <Card key={phone}><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-xl font-black">{first.customer}</h3><p className="text-sm text-slate-500">{phone} • {list.length} booking(s)</p></div><button onClick={() => window.open(`tel:${phone}`)} className="rounded-2xl bg-emerald-600 px-4 py-2 font-black text-white">Call</button></div><div className="mt-4 grid gap-2 md:grid-cols-3">{list.map((b) => <button key={getId(b)} onClick={() => setSelectedBooking(b)} className="rounded-2xl bg-slate-100 p-3 text-left text-sm dark:bg-slate-800"><b>{b.id}</b><p>{b.service}</p><p>₹{b.amount}</p><p className="text-xs text-slate-500">{b.date}</p></button>)}</div></Card>; })}</div>; }
-  function Complaints() { function addComplaint() { if (!complaintForm.customer.trim()) return; setComplaints((prev) => [{ id: Date.now(), customer: complaintForm.customer, issue: complaintForm.issue || "New issue", status: "Open" }, ...prev]); setComplaintForm({ customer: "", issue: "" }); } return <Card><div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h3 className="text-2xl font-black">Complaints</h3><button onClick={addComplaint} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]"><Plus size={16} className="inline" /> Add Complaint</button></div><div className="mb-4 grid gap-3 md:grid-cols-2"><input value={complaintForm.customer} onChange={(e) => setComplaintForm((old) => ({ ...old, customer: e.target.value }))} placeholder="Customer" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /><input value={complaintForm.issue} onChange={(e) => setComplaintForm((old) => ({ ...old, issue: e.target.value }))} placeholder="Issue" className="rounded-2xl border px-3 py-2 dark:border-slate-700 dark:bg-slate-950" /></div><div className="grid gap-3">{complaints.map((c) => <div key={c.id} className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><b>{c.customer}</b><p className="text-sm text-slate-500">{c.issue}</p><div className="mt-2"><Badge>{c.status}</Badge></div></div>)}</div></Card>; }
-  function StaffPerformance() { return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{staff.map((p) => { const count = bookings.filter((b) => b.supervisor === p.name || b.staff === p.name).length; const completed = bookings.filter((b) => (b.supervisor === p.name || b.staff === p.name) && b.status === "Completed").length; const score = Math.min(100, 70 + completed * 10 + count * 3); return <Card key={p.id}><h3 className="text-xl font-black">{p.name}</h3><p className="text-sm text-slate-500">{p.role}</p><p className="mt-4 text-4xl font-black text-[#07162a] dark:text-white">{score}</p><p className="text-sm text-slate-500">Performance score</p><p className="mt-3 text-xs text-slate-500">Jobs: {count} • Completed: {completed}</p></Card>; })}</div>; }
-  function Attendance() { return <Card><h3 className="mb-4 text-2xl font-black">Attendance</h3><div className="grid gap-3">{staff.map((p) => <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div><b>{p.name}</b><p className="text-sm text-slate-500">{p.role}</p></div><select value={p.status} onChange={(e) => setStaff((prev) => prev.map((i) => i.id === p.id ? { ...i, status: e.target.value } : i))} className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Present</option><option>Absent</option></select></div>)}</div></Card>; }
-  function Reminders() { const pendingPayments = confirmedBookings.filter((b) => b.payment !== "Paid"); const completedJobs = bookings.filter((b) => b.status === "Completed"); return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Payment Reminders</h3>{pendingPayments.map((b) => <div key={getId(b)} className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800"><div><b>{b.customer}</b><p className="text-xs text-slate-500">₹{b.amount} pending</p></div><button onClick={() => window.open(`https://wa.me/91${b.phone}`)} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">WhatsApp</button></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Review Follow-ups</h3>{completedJobs.map((b) => <div key={getId(b)} className="mb-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800"><b>{b.customer}</b><p className="text-sm text-slate-500">Ask review for {b.service}</p></div>)}</Card></div>; }
-  function Marketing() { const groups = ["Website", "App", "Instagram", "Google", "WhatsApp", "Referral", "Manual"].map((source) => ({ source, list: bookings.filter((b) => (b.source || "Manual") === source) })); return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Marketing Leads</h3>{groups.map((g) => <div key={g.source} className="mb-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div className="flex justify-between"><b>{g.source}</b><b>{g.list.length} leads</b></div><p className="text-sm text-slate-500">Confirmed: {g.list.filter((b) => confirmedStatuses.includes(b.status)).length}</p></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Website / App Lead Details</h3>{[...websiteLeads, ...appLeads].map((b) => <button key={getId(b)} onClick={() => setSelectedBooking(b)} className="mb-3 w-full rounded-2xl bg-[#07162a] p-4 text-left text-[#d4af37]"><b>{b.customer}</b><p className="text-sm text-white/70">{b.source} • {b.phone} • ₹{b.amount}</p><Badge>{b.status}</Badge></button>)}</Card></div>; }
-  function ProfitAnalysis() { const byService = services.map((service) => { const list = confirmedBookings.filter((b) => String(b.service || "").includes(service.name)); const revenue = list.reduce((sum, b) => sum + safeAmount(b.amount), 0); return { ...service, count: list.length, revenue }; }).filter((i) => i.count > 0); const profit = Math.max(0, totalRevenue - fuelExpense); return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Service Profit Analysis</h3>{byService.length === 0 ? <div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800">No confirmed bookings yet.</div> : byService.map((i) => <div key={i.id} className="mb-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div className="flex justify-between"><b>{i.name}</b><b>₹{i.revenue.toLocaleString()}</b></div><p className="text-sm text-slate-500">{i.count} confirmed booking(s)</p></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Profit Summary</h3><div className="grid gap-3"><div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><b>Confirmed Revenue</b><p className="text-2xl font-black">₹{totalRevenue.toLocaleString()}</p></div><div className="rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><b>Fuel Expense</b><p className="text-2xl font-black">₹{fuelExpense}</p></div><div className="rounded-2xl bg-[#07162a] p-4 text-[#d4af37]"><b>Estimated Profit</b><p className="text-3xl font-black">₹{profit.toLocaleString()}</p></div></div></Card></div>; }
-  function Reports() { return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Bookings" value={bookings.length} icon={ClipboardList} sub="Total records" /><StatCard title="Confirmed" value={confirmedBookings.length} icon={CheckCircle2} sub="Calendar visible" /><StatCard title="Revenue" value={`₹${totalRevenue.toLocaleString()}`} icon={IndianRupee} sub="Confirmed revenue" /><StatCard title="Website Leads" value={websiteLeads.length} icon={TrendingUp} sub="Marketing source" /></div>; }
-  function AuditLogs() { const logs = ["Dashboard opened", "Lead received", "Booking edited", "Booking confirmed", "Supervisor assigned", "Calendar updated", "Payment marked"]; return <Card><h3 className="mb-4 text-2xl font-black">Audit Logs</h3>{logs.map((log, index) => <div key={log} className="mb-2 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800"><b>Owner</b> • {log}<p className="text-xs text-slate-500">Log #{index + 1}</p></div>)}</Card>; }
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-black text-slate-950">Daily KM Expense</h3>
+              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">Auto</span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-3xl bg-slate-50 p-3"><b className="text-xl">{dailyKm}</b><p className="text-xs font-bold text-slate-500">Total KM</p></div>
+              <div className="rounded-3xl bg-slate-50 p-3"><b className="text-xl">₹{kmRate}</b><p className="text-xs font-bold text-slate-500">Per KM</p></div>
+              <div className="rounded-3xl bg-slate-50 p-3"><b className="text-xl">{money(dailyKmExpense)}</b><p className="text-xs font-bold text-slate-500">Expense</p></div>
+            </div>
+            <div className="mt-3 rounded-2xl bg-slate-50 p-3">
+              <p className="mb-1 text-xs font-black uppercase tracking-wide text-slate-400">KM Rate</p>
+              <input inputMode="decimal" value={kmRate} onChange={(e) => setKmRate(e.target.value.replace(/[^0-9.]/g, ""))} className="w-full bg-transparent text-lg font-black outline-none" placeholder="Ex: 10" />
+            </div>
+          </Card>
 
-  function Screen() { const map = { Dashboard, Jobs, "Supervisor App": SupervisorApp, "Live Bookings": Jobs, "Firebase Sync": FirebaseSync, Calendar: CalendarView, "Customers CRM": CustomersCRM, "Customer History": CustomerHistory, Complaints, Services, "Staff Performance": StaffPerformance, Attendance, Payroll, Inventory, Expenses, Payments, Reminders, Invoices, Marketing, "Profit Analysis": ProfitAnalysis, Reports, "Audit Logs": AuditLogs, Settings: SettingsView }; const Component = map[active] || Dashboard; return <Component />; }
-  if (!loggedIn) return <Login />;
-  return <Shell><Screen /></Shell>;
+          <Card>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-black text-slate-950">Admin Dashboard Updates</h3>
+              <span className="rounded-full bg-[#07162a] px-3 py-1 text-xs font-black text-[#d4af37]">Live</span>
+            </div>
+            {adminUpdates.length === 0 ? (
+              <p className="rounded-2xl bg-slate-50 p-3 text-sm font-bold text-slate-500">No updates yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {adminUpdates.slice(0, 5).map((item) => (
+                  <div key={item.id} className="rounded-2xl bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <b className="text-sm">{item.jobId} - {item.customer}</b>
+                      <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-black text-blue-700">{item.status}</span>
+                    </div>
+                    <p className="mt-1 text-xs font-bold text-slate-500">{item.time} • {item.service}</p>
+                    {item.note && <p className="mt-1 text-xs font-bold text-slate-700">{item.note}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          <button onClick={() => setTab("Jobs")} className="w-full rounded-[1.75rem] bg-[#07162a] p-5 text-left text-[#d4af37] shadow-2xl active:scale-[0.98]">
+            <p className="text-sm font-black text-white/70">Start field work</p>
+            <h2 className="mt-1 text-2xl font-black">Open Jobs →</h2>
+          </button>
+
+          <Card>
+            <h3 className="text-lg font-black text-slate-950">Field Guidelines</h3>
+            <div className="mt-3 grid gap-2 text-sm font-semibold text-slate-700">
+              <p className="rounded-2xl bg-amber-50 p-3">💡 Site reach selfie + machine proof compulsory.</p>
+              <p className="rounded-2xl bg-blue-50 p-3">💡 Additional work add pannina total amount auto update aagum.</p>
+              <p className="rounded-2xl bg-emerald-50 p-3">💡 Payment mode select pannama job close panna mudiyathu.</p>
+            </div>
+          </Card>
+        </div>
+        <BottomNav tab={tab} setTab={setTab} />
+      </div>
+    );
+  }
+
+  function JobsScreen() {
+    return (
+      <div className="min-h-screen bg-slate-100 p-4 pb-28">
+        <div className="mx-auto max-w-md space-y-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-4 text-slate-400" size={18} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search work, customer, area..." className="w-full rounded-3xl border-0 bg-white py-4 pl-11 pr-4 font-bold shadow-xl outline-none" />
+          </div>
+          {jobs.map((job) => (
+            <button key={job.id} onClick={() => openJob(job)} className="w-full text-left">
+              <Card className="overflow-hidden border-0 p-0 shadow-2xl transition active:scale-[0.99]">
+                <div className="relative h-44">
+                  <img src={SERVICE_PHOTOS[job.service] || SERVICE_PHOTOS["Deep Home Cleaning"]} className="h-full w-full object-cover" alt={job.service} />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                  <div className="absolute right-3 top-3 rounded-full bg-white px-3 py-1 text-xs font-black text-blue-700">{job.status}</div>
+                  <div className="absolute bottom-4 left-4 right-4 text-white">
+                    <h3 className="text-2xl font-black">{job.customer}</h3>
+                    <p className="text-sm font-semibold text-white/85">{job.icon} {job.service}</p>
+                    <p className="mt-1 inline-flex rounded-full bg-white/90 px-3 py-1 text-xs font-black text-slate-900">{job.status}</p>
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="grid grid-cols-2 gap-2 text-xs font-bold text-slate-500">
+                    <p className="rounded-2xl bg-slate-50 p-3"><Clock3 size={13} className="inline" /> {job.time}</p>
+                    <p className="rounded-2xl bg-slate-50 p-3"><Phone size={13} className="inline" /> {job.phone}</p>
+                  </div>
+                  <p className="mt-2 truncate rounded-2xl bg-slate-50 p-3 text-xs font-bold text-slate-500"><MapPin size={13} className="inline" /> {job.address}</p>
+                </div>
+              </Card>
+            </button>
+          ))}
+        </div>
+        <BottomNav tab={tab} setTab={setTab} />
+      </div>
+    );
+  }
+
+  function ProfileScreen() {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-300 p-4 pb-28">
+        <div className="mx-auto max-w-md space-y-4">
+          <Card className="border-0 shadow-2xl">
+            <div className="flex items-center gap-4">
+              <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#07162a] text-3xl text-[#d4af37]">👨‍💼</div>
+              <div>
+                <h1 className="text-2xl font-black">Selva Supervisor</h1>
+                <p className="font-semibold text-slate-500">FreshNest Field Lead</p>
+              </div>
+            </div>
+          </Card>
+          <Card>
+            <h3 className="text-lg font-black">Add Staff</h3>
+            <div className="mt-3 flex gap-2">
+              <input value={newStaff} onChange={(e) => setNewStaff(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") addStaffName(); }} placeholder="Staff name" className="min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 py-3 font-bold outline-none" />
+              <button type="button" onClick={addStaffName} className="rounded-2xl bg-[#07162a] px-5 py-3 font-black text-[#d4af37]">Add</button>
+            </div>
+            <div className="mt-4 space-y-2">{staffList.map((staff, index) => <div key={`${staff}-${index}`} className="rounded-2xl bg-slate-50 p-3 font-bold">👷 {staff}</div>)}</div>
+          </Card>
+        </div>
+        <BottomNav tab={tab} setTab={setTab} />
+      </div>
+    );
+  }
+
+  if (!selectedJob) {
+    if (tab === "Jobs") return <JobsScreen />;
+    if (tab === "Profile") return <ProfileScreen />;
+    return <HomeScreen />;
+  }
+
+  const StepHeader = ({ title, sub }) => (
+    <div className="mb-4 rounded-[1.5rem] bg-[#07162a] p-4 text-white">
+      <p className="text-xs font-black text-[#d4af37]">Step {step + 1} / 10</p>
+      <h3 className="mt-1 text-xl font-black">{title}</h3>
+      <p className="mt-1 text-xs font-bold text-white/65">{sub}</p>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-100 p-3 pb-6">
+      <div className="mx-auto max-w-md">
+        <div className="mb-3 flex items-center justify-between rounded-3xl bg-white p-4 shadow-xl">
+          <button onClick={() => setSelectedJob(null)} className="rounded-2xl bg-slate-100 p-3"><ArrowLeft size={18} /></button>
+          <div className="text-center">
+            <h2 className="text-2xl font-black">{selectedJob.id}</h2>
+            <p className="text-xs font-bold text-slate-500">{form.status || selectedJob.status || "Assigned"}</p>
+          </div>
+          <div className="text-right">
+            <div className="rounded-2xl bg-amber-50 px-3 py-2 text-sm font-black text-amber-700">{money(totalAmount)}</div>
+            <p className="mt-1 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700">{form.status || selectedJob.status}</p>
+          </div>
+        </div>
+
+        <ServiceImage job={selectedJob} />
+
+        {step < 3 && (
+          <Card className="mt-4 border-0 bg-white shadow-xl">
+            <p className="mb-3 text-sm font-black text-slate-600">Today Work Status Update</p>
+            <div className="grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => { update("status", "On the Way"); pushAdminUpdate(selectedJob, "On the Way", "Supervisor started to customer location"); }} className="rounded-2xl bg-blue-50 p-3 text-sm font-black text-blue-700"><Navigation size={16} className="inline" /> On the Way</button>
+              <button type="button" onClick={() => { update("status", "Customer Delay"); pushAdminUpdate(selectedJob, "Customer Delay", "Customer delayed / waiting at site"); }} className="rounded-2xl bg-amber-50 p-3 text-sm font-black text-amber-700"><Clock3 size={16} className="inline" /> Delay</button>
+              <button type="button" onClick={() => { update("status", "Work Started"); pushAdminUpdate(selectedJob, "Work Started", "Work started at site"); if (step < 3) setStep(3); }} className="rounded-2xl bg-emerald-50 p-3 text-sm font-black text-emerald-700"><Send size={16} className="inline" /> Work Start</button>
+              <button type="button" onClick={() => { update("status", "Issue"); pushAdminUpdate(selectedJob, "Issue", form.issueText || "Supervisor reported an issue"); }} className="rounded-2xl bg-red-50 p-3 text-sm font-black text-red-700"><AlertTriangle size={16} className="inline" /> Issue</button>
+            </div>
+            <input
+              value={form.issueText || ""}
+              onChange={(e) => update("issueText", e.target.value)}
+              placeholder="Type issue note..."
+              className="mt-3 w-full rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold outline-none"
+            />
+            <p className="mt-2 text-xs font-bold text-slate-400">Status controls hide after work starts.</p>
+          </Card>
+        )}
+
+        <motion.div key={step} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="mt-4">
+          <Card>
+            {step === 0 && (
+              <>
+                <StepHeader title="Customer Details" sub="Enter starting vehicle KM before pickup." />
+                <div className="space-y-3">
+                  <div className="rounded-3xl bg-slate-50 p-4">
+                    <h3 className="text-xl font-black">{selectedJob.customer}</h3>
+                    <a href={`tel:${selectedJob.phone}`} className="mt-1 block text-sm font-bold text-blue-700 active:scale-[0.98]"><Phone size={14} className="inline" /> {selectedJob.phone} - Touch to Call</a>
+                    <p className="mt-1 text-sm font-bold text-slate-500"><MapPin size={14} className="inline" /> {selectedJob.address}</p>
+                  </div>
+                  <TextInput label="Start KM" value={form.vehicleKm} onChange={(v) => update("vehicleKm", v)} placeholder="Example: 15240" type="number" />
+                </div>
+              </>
+            )}
+
+            {step === 1 && (
+              <>
+                <StepHeader title="Staff Pickup" sub="Staff select pannitu pickup KM/time enter pannunga." />
+                <p className="mb-2 text-sm font-black text-slate-600">Select Staff</p>
+                <div className="mb-4 flex flex-wrap gap-2">{staffList.map((staff) => <Pill key={staff} active={(form.selectedStaff || []).includes(staff)} onClick={() => toggleStaff(staff)}>{staff}</Pill>)}</div>
+                <div className="grid gap-3">
+                  <TextInput label="Pickup KM" value={form.pickupKm} onChange={(v) => update("pickupKm", v)} type="number" />
+                  <TextInput label="Pickup Time" value={form.pickupTime} onChange={(v) => update("pickupTime", v)} type="time" />
+                  <button type="button" onClick={() => update("pickupTime", getNowTime())} className="rounded-2xl bg-blue-50 p-3 text-sm font-black text-blue-700">Use Current Time {form.pickupTime ? `• ${displayTime(form.pickupTime)}` : ""}</button>
+                </div>
+              </>
+            )}
+
+            {step === 2 && (
+              <>
+                <StepHeader title="Site Reached" sub="Site KM/time + staff selfie + machine photo upload pannunga." />
+                <div className="grid gap-3">
+                  <TextInput label="Site Reach KM" value={form.siteKm} onChange={(v) => update("siteKm", v)} type="number" />
+                  <TextInput label="Site Reach Time" value={form.siteTime} onChange={(v) => update("siteTime", v)} type="time" />
+                  <button type="button" onClick={() => update("siteTime", getNowTime())} className="rounded-2xl bg-blue-50 p-3 text-sm font-black text-blue-700">Use Current Time {form.siteTime ? `• ${displayTime(form.siteTime)}` : ""}</button>
+                  <UploadBox label="Staff / Supervisor Selfie" value={form.siteSelfie} onChange={(v) => update("siteSelfie", v)} />
+                  <UploadBox label="Machine Proof Photo" value={form.machinePhoto} onChange={(v) => update("machinePhoto", v)} />
+                </div>
+              </>
+            )}
+
+            {step === 3 && (
+              <>
+                <StepHeader title="Work Start" sub="Customer permission confirm pannitu work start pannunga." />
+                <div className="rounded-3xl bg-emerald-50 p-5 text-center">
+                  <ShieldCheck className="mx-auto text-emerald-600" size={44} />
+                  <h3 className="mt-2 text-2xl font-black text-emerald-800">Ready to Start</h3>
+                  <p className="mt-1 text-sm font-bold text-emerald-700">All initial proof collected.</p>
+                </div>
+              </>
+            )}
+
+            {step === 4 && (
+              <>
+                <StepHeader title="Booked + Additional Work" sub="Extra work add pannina total amount auto increase aagum." />
+                <div className="mb-4 rounded-3xl bg-slate-50 p-4">
+                  <p className="text-xs font-black text-slate-500">Booked Work</p>
+                  <div className="mt-1 flex items-center justify-between">
+                    <h3 className="font-black">{selectedJob.service}</h3>
+                    <b>{money(baseAmount)}</b>
+                  </div>
+                </div>
+                <div className="grid gap-2">
+                  {EXTRA_WORKS.map((work) => (
+                    <button type="button" key={work.name} onClick={() => addExtra(work)} className="flex items-center justify-between rounded-2xl bg-slate-50 p-3 text-left active:scale-[0.99]">
+                      <div>
+                        <p className="font-black">{work.name}</p>
+                        <p className="text-xs font-bold text-slate-500">{money(work.amount)} {work.unit}</p>
+                      </div>
+                      <Plus className="text-blue-700" />
+                    </button>
+                  ))}
+                </div>
+
+                <div className="mt-4 rounded-3xl bg-amber-50 p-3">
+                  <p className="mb-2 text-sm font-black text-amber-900">Manual Additional Work</p>
+                  <div className="grid gap-2">
+                    <input value={customExtra.name} onChange={(e) => setCustomExtra({ ...customExtra, name: e.target.value })} placeholder="Work name ex: Balcony cleaning" className="rounded-2xl bg-white px-4 py-3 text-sm font-black outline-none" />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input inputMode="decimal" value={customExtra.rate} onChange={(e) => setCustomExtra({ ...customExtra, rate: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Rate ex: 8.5" className="rounded-2xl bg-white px-4 py-3 text-sm font-black outline-none" />
+                      <input inputMode="decimal" value={customExtra.qty} onChange={(e) => setCustomExtra({ ...customExtra, qty: e.target.value.replace(/[^0-9.]/g, "") })} placeholder="Qty ex: 1000" className="rounded-2xl bg-white px-4 py-3 text-sm font-black outline-none" />
+                    </div>
+                    <button type="button" onClick={addCustomExtra} className="rounded-2xl bg-[#07162a] p-3 text-sm font-black text-[#d4af37]">Add Manual: {customExtra.rate && customExtra.qty ? money(Number(customExtra.rate) * Number(customExtra.qty)) : "₹0"}</button>
+                  </div>
+                </div>
+                {(form.extraWorks || []).length > 0 && (
+                  <div className="mt-4 rounded-3xl bg-blue-50 p-3">
+                    <p className="mb-2 text-sm font-black text-blue-900">Added Extra Works</p>
+                    {(form.extraWorks || []).map((work) => (
+                      <div key={work.lineId} className="mb-2 rounded-2xl bg-white p-3">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="font-black">{work.name}</p>
+                            <p className="text-xs font-bold text-slate-500">{money(work.amount)} {work.unit}</p>
+                          </div>
+                          <button onClick={() => removeExtra(work.lineId)} className="rounded-xl bg-red-50 p-2 text-red-600"><Trash2 size={16} /></button>
+                        </div>
+                        <div className="mt-3 grid grid-cols-[1fr_auto] items-center gap-2">
+                          <input
+                            type="number"
+                            min="0"
+                            value={work.qty || ""}
+                            onChange={(e) => updateExtraQty(work.lineId, e.target.value)}
+                            placeholder={work.inputLabel || "Qty"}
+                            className="rounded-2xl bg-slate-50 px-4 py-3 font-black outline-none"
+                          />
+                          <div className="rounded-2xl bg-[#07162a] px-4 py-3 text-sm font-black text-[#d4af37]">
+                            {money(Number(work.amount || 0) * Number(work.qty || 0))}
+                          </div>
+                        </div>
+                        <p className="mt-1 text-xs font-bold text-slate-400">
+                          {work.inputLabel}: {work.qty || 0} × {money(work.amount)} = {money(Number(work.amount || 0) * Number(work.qty || 0))}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-4 rounded-3xl bg-[#07162a] p-4 text-white">
+                  <p className="text-sm font-bold text-white/60">Final Total</p>
+                  <h2 className="text-4xl font-black text-[#d4af37]">{money(totalAmount)}</h2>
+                </div>
+              </>
+            )}
+
+            {step === 5 && (
+              <>
+                <StepHeader title="Work End Proof" sub="Finish photo upload pannunga." />
+                <UploadBox label="Final Work Completed Photo" value={form.finishPhoto} onChange={(v) => update("finishPhoto", v)} />
+              </>
+            )}
+
+            {step === 6 && (
+              <>
+                <StepHeader title="Payment" sub="Hand Cash / UPI select pannunga." />
+                <div className="rounded-3xl bg-[#07162a] p-5 text-center text-white">
+                  <IndianRupee className="mx-auto text-[#d4af37]" size={38} />
+                  <p className="mt-2 text-sm font-bold text-white/60">Collect Amount</p>
+                  <h2 className="text-5xl font-black text-[#d4af37]">{money(totalAmount)}</h2>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3">
+                  <Pill active={form.paymentMode === "Hand Cash"} onClick={() => update("paymentMode", "Hand Cash")}>💵 Hand Cash</Pill>
+                  <Pill active={form.paymentMode === "UPI"} onClick={() => update("paymentMode", "UPI")}>📲 UPI</Pill>
+                </div>
+              </>
+            )}
+
+            {step === 7 && (
+              <>
+                <StepHeader title="Machine Checklist" sub="All machines/things return confirm pannunga." />
+                <div className="grid gap-2">{MACHINE_ITEMS.map((item) => <button key={item} onClick={() => toggleMachine(item)} className={cn("flex items-center justify-between rounded-2xl p-4 font-black", form.machines?.[item] ? "bg-emerald-50 text-emerald-800" : "bg-slate-50 text-slate-700")}><span>{item}</span>{form.machines?.[item] && <CheckCircle2 size={20} />}</button>)}</div>
+              </>
+            )}
+
+            {step === 8 && (
+              <>
+                <StepHeader title="Staff Drop & Final Summary" sub="Site Leave KM + staff drop KM/time fill pannitu complete pannunga." />
+                <div className="grid gap-3">
+                  <TextInput label="Return KM" value={form.returnKm} onChange={(v) => update("returnKm", v)} type="number" />
+                  <TextInput label="Staff Drop KM" value={form.staffDropKm} onChange={(v) => update("staffDropKm", v)} type="number" />
+                  <TextInput label="Staff Drop Time" value={form.staffDropTime} onChange={(v) => update("staffDropTime", v)} type="time" />
+                  <button type="button" onClick={() => update("staffDropTime", getNowTime())} className="rounded-2xl bg-blue-50 p-3 text-sm font-black text-blue-700">Use Current Time {form.staffDropTime ? `• ${displayTime(form.staffDropTime)}` : ""}</button>
+                </div>
+                <div className="mt-4 rounded-3xl bg-slate-50 p-4 text-sm font-bold text-slate-600">
+                  <p>Customer: <b className="text-slate-950">{selectedJob.customer}</b></p>
+                  <p>Staff: <b className="text-slate-950">{(form.selectedStaff || []).join(", ")}</b></p>
+                  <p>Payment: <b className="text-slate-950">{form.paymentMode}</b></p>
+                  <p>Total: <b className="text-slate-950">{money(totalAmount)}</b></p>
+                </div>
+              </>
+            )}
+
+            <div className="mt-4 flex gap-3">
+              {step > 0 && <button onClick={back} className="rounded-full bg-slate-100 px-5 py-4 font-black text-slate-700">Back</button>}
+              {step < 8 ? (
+                <SwipeButton disabled={!canNext[step]} onClick={next}>Swipe / Continue →</SwipeButton>
+              ) : (
+                <SwipeButton disabled={!canNext[step]} green onClick={finishJob}>Work Complete ✅</SwipeButton>
+              )}
+            </div>
+          </Card>
+        </motion.div>
+
+        {step < 3 && (
+          <button type="button" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedJob.address)}`, "_blank")} className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-white px-5 py-4 font-black text-blue-700 shadow-xl">
+            <Navigation size={18} /> Open Customer Location
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
