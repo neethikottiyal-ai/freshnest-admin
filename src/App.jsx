@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import jsPDF from "jspdf";
 import {
   Bell,
   CalendarDays,
@@ -366,35 +367,31 @@ export default function FreshNestAdminPreview() {
     notify("Website booking auto synced");
   }
 
-  function openPrintableDocument(title, bodyHtml) {
-    const html = `<!doctype html><html><head><meta charset="utf-8" /><title>${title}</title><style>body{font-family:Arial,sans-serif;padding:24px;color:#0f172a}h1{margin:0 0 6px}table{width:100%;border-collapse:collapse;margin-top:16px}td,th{border:1px solid #e2e8f0;padding:10px;text-align:left}.total{font-size:22px;font-weight:800;margin-top:18px}.muted{color:#64748b}</style></head><body>${bodyHtml}</body></html>`;
-    const win = window.open("", "_blank");
-    if (!win) {
-      notify("Popup blocked. Browser popup allow pannunga.");
-      return;
-    }
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
-  }
-
   function downloadInvoicePDF(booking) {
-    const rows = (booking.servicesList || []).map((item, index) => `<tr><td>${index + 1}</td><td>${item.service}</td><td>${item.qty}</td><td>Rs.${Number(item.amount || 0).toLocaleString()}</td></tr>`).join("");
-    openPrintableDocument(`${booking.id}-FreshNest-Invoice`, `
-      <h1>FreshNest Cleaning Services</h1>
-      <p class="muted">Trichy • Owners: Neethirajan & Selva Kumar</p>
-      <hr />
-      <h2>Invoice: ${booking.id}</h2>
-      <p><b>Customer:</b> ${booking.customer}</p>
-      <p><b>Phone:</b> ${booking.phone}</p>
-      <p><b>Address:</b> ${booking.address || booking.area}</p>
-      <p><b>Date:</b> ${booking.date} ${booking.time || ""}</p>
-      <p><b>Status:</b> ${booking.confirmed ? "Confirmed" : booking.status}</p>
-      <table><thead><tr><th>#</th><th>Service</th><th>Qty</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="total">Total: Rs.${Number(booking.amount || 0).toLocaleString()}</p>
-    `);
-    notify("Invoice print / Save as PDF opened");
+    const pdf = new jsPDF();
+    pdf.setFontSize(18);
+    pdf.text("FreshNest Cleaning Services", 20, 20);
+    pdf.setFontSize(11);
+    pdf.text("Trichy • Owners: Neethirajan & Selva Kumar", 20, 28);
+    pdf.line(20, 34, 190, 34);
+    pdf.setFontSize(14);
+    pdf.text(`Invoice: ${booking.id}`, 20, 45);
+    pdf.setFontSize(11);
+    pdf.text(`Customer: ${booking.customer}`, 20, 55);
+    pdf.text(`Phone: ${booking.phone}`, 20, 63);
+    pdf.text(`Address: ${booking.address || booking.area}`, 20, 71);
+    pdf.text(`Date: ${booking.date} ${booking.time || ""}`, 20, 79);
+    pdf.text(`Status: ${booking.confirmed ? "Confirmed" : booking.status}`, 20, 87);
+    let y = 104;
+    (booking.servicesList || []).forEach((item, index) => {
+      pdf.text(`${index + 1}. ${item.service} - Qty: ${item.qty} - Rs.${Number(item.amount || 0).toLocaleString()}`, 24, y);
+      y += 9;
+    });
+    pdf.line(20, y + 3, 190, y + 3);
+    pdf.setFontSize(15);
+    pdf.text(`Total: Rs.${Number(booking.amount || 0).toLocaleString()}`, 20, y + 16);
+    pdf.save(`${booking.id}-FreshNest-Invoice.pdf`);
+    notify("Invoice PDF downloaded");
   }
 
   function whatsappTemplate(booking, type = "confirm") {
@@ -423,23 +420,21 @@ export default function FreshNestAdminPreview() {
   }
 
   function downloadMonthlyMISPDF() {
-    openPrintableDocument("FreshNest-Monthly-MIS", `
-      <h1>FreshNest Monthly MIS Report</h1>
-      <p class="muted">FreshNest Cleaning Services • Trichy</p>
-      <hr />
-      <table>
-        <tbody>
-          <tr><th>Total Bookings</th><td>${bookings.length}</td></tr>
-          <tr><th>Confirmed Revenue</th><td>Rs.${totalRevenue.toLocaleString()}</td></tr>
-          <tr><th>Fuel Expense</th><td>Rs.${fuelExpense}</td></tr>
-          <tr><th>Estimated Profit</th><td>Rs.${Math.max(0, totalRevenue - fuelExpense).toLocaleString()}</td></tr>
-          <tr><th>Website Leads</th><td>${websiteLeads.length}</td></tr>
-          <tr><th>App Leads</th><td>${appLeads.length}</td></tr>
-          <tr><th>Repeat Customers</th><td>${repeatCustomerCount}</td></tr>
-        </tbody>
-      </table>
-    `);
-    notify("Monthly MIS print / Save as PDF opened");
+    const pdf = new jsPDF();
+    pdf.setFontSize(18);
+    pdf.text("FreshNest Monthly MIS Report", 20, 20);
+    pdf.setFontSize(11);
+    pdf.text("FreshNest Cleaning Services • Trichy", 20, 28);
+    pdf.line(20, 34, 190, 34);
+    pdf.text(`Total Bookings: ${bookings.length}`, 20, 48);
+    pdf.text(`Confirmed Revenue: Rs.${totalRevenue.toLocaleString()}`, 20, 58);
+    pdf.text(`Fuel Expense: Rs.${fuelExpense}`, 20, 68);
+    pdf.text(`Estimated Profit: Rs.${Math.max(0, totalRevenue - fuelExpense).toLocaleString()}`, 20, 78);
+    pdf.text(`Website Leads: ${websiteLeads.length}`, 20, 88);
+    pdf.text(`App Leads: ${appLeads.length}`, 20, 98);
+    pdf.text(`Repeat Customers: ${repeatCustomerCount}`, 20, 108);
+    pdf.save("FreshNest-Monthly-MIS.pdf");
+    notify("Monthly MIS PDF downloaded");
   }
 
   function addStaff() {
@@ -580,16 +575,4 @@ export default function FreshNestAdminPreview() {
   function Attendance() { return <Card><h3 className="mb-4 text-2xl font-black">Attendance</h3><div className="grid gap-3">{staff.map((person) => <div key={person.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div><b>{person.name}</b><p className="text-sm text-slate-500">{person.role}</p></div><select value={person.status} onChange={(event) => setStaff((previous) => previous.map((item) => item.id === person.id ? { ...item, status: event.target.value } : item))} className="rounded-xl border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-950"><option>Present</option><option>Absent</option></select></div>)}</div></Card>; }
   function Reminders() { const pendingPayments = bookings.filter((booking) => booking.payment !== "Paid"); const completedJobs = bookings.filter((booking) => booking.status === "Completed" || booking.confirmed); return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Payment Reminders</h3>{pendingPayments.map((booking) => <div key={booking.id} className="mb-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800"><div className="flex items-center justify-between gap-3"><div><b>{booking.customer}</b><p className="text-xs text-slate-500">₹{booking.amount} pending</p></div><button onClick={() => whatsappTemplate(booking, "payment")} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">WhatsApp</button></div></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Review / Completion Automation</h3>{completedJobs.map((booking) => <div key={booking.id} className="mb-3 rounded-2xl bg-slate-100 p-3 dark:bg-slate-800"><b>{booking.customer}</b><p className="text-sm text-slate-500">{booking.service}</p><div className="mt-3 grid gap-2 md:grid-cols-2"><button onClick={() => whatsappTemplate(booking, "completed")} className="rounded-xl bg-[#07162a] px-3 py-2 text-xs font-black text-[#d4af37]">Completed Msg</button><button onClick={() => whatsappTemplate(booking, "review")} className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white">Review Msg</button></div></div>)}</Card></div>; }
   function Marketing() { const leadRows = [{ name: "Website Lead", count: websiteLeads.length, note: "Website booking form" }, { name: "App Lead", count: appLeads.length, note: "App / Instagram / online leads" }, { name: "Manual Lead", count: manualLeads.length, note: "Admin manual entry" }, { name: "Repeat Customers", count: repeatCustomerCount, note: "Phone number matched" }]; const ideas = ["Before/After sofa reel", "Festival deep cleaning offer", "Water tank safety post", "Referral cashback"]; return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Marketing Leads</h3>{leadRows.map((item) => <div key={item.name} className="mb-3 rounded-2xl bg-slate-100 p-4 dark:bg-slate-800"><div className="flex items-center justify-between"><b>{item.name}</b><span className="text-2xl font-black text-[#d4af37]">{item.count}</span></div><p className="text-sm text-slate-500">{item.note}</p></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Lead Details</h3><div className="space-y-3">{bookings.slice(0, 8).map((booking) => <button key={booking.id} onClick={() => setSelectedBooking(booking)} className="w-full rounded-2xl bg-slate-100 p-3 text-left dark:bg-slate-800"><b>{booking.customer}</b><p className="text-sm text-slate-500">{booking.leadSource} • {booking.service}</p><p className="text-xs text-slate-500">{booking.phone} • {booking.confirmed ? "Confirmed" : booking.status}</p></button>)}</div></Card><Card><h3 className="mb-4 text-2xl font-black">Campaign Ideas</h3>{ideas.map((item) => <div key={item} className="mb-3 rounded-2xl bg-[#07162a] p-4 font-black text-[#d4af37]">{item}</div>)}</Card></div>; }
-  function ProfitAnalysis() { const profitNow = Math.max(0, totalRevenue - fuelExpense); return <div className="space-y-4"><div className="grid gap-4 md:grid-cols-3"><StatCard title="Confirmed Revenue" value={`₹${totalRevenue.toLocaleString()}`} icon={IndianRupee} sub="Confirmed bookings only" /><StatCard title="Fuel / Ops Expense" value={`₹${fuelExpense}`} icon={ReceiptText} sub="KM based estimate" /><StatCard title="Estimated Profit" value={`₹${profitNow.toLocaleString()}`} icon={TrendingUp} sub="Revenue - fuel" /></div><Card><h3 className="mb-4 text-2xl font-black">Revenue vs Expense Trend</h3><div className="h-80"><ResponsiveContainer width="100%" height="100%"><LineChart data={analyticsData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Line type="monotone" dataKey="revenue" stroke="#d4af37" strokeWidth={3} /><Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={3} /><Line type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={3} /></LineChart></ResponsiveContainer></div></Card><div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Service Revenue</h3><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={serviceChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="revenue" fill="#d4af37" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></div></Card><Card><h3 className="mb-4 text-2xl font-black">Lead Source Split</h3><div className="h-72"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={leadChartData} dataKey="value" nameKey="name" outerRadius={95} label>{leadChartData.map((entry, index) => <Cell key={entry.name} fill={["#d4af37", "#3b82f6", "#10b981"][index % 3]} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer></div></Card></div></div>; }
-  function Reports() { return <div className="space-y-4"><Card><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-2xl font-black">Reports Export & Premium Tools</h3><p className="text-sm text-slate-500">CSV export, monthly MIS PDF, sound alert and loading polish.</p></div><div className="flex flex-wrap gap-2"><button onClick={exportBookingsCSV} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]">Export CSV</button><button onClick={downloadMonthlyMISPDF} className="rounded-2xl bg-emerald-600 px-4 py-2 font-black text-white">MIS PDF</button><button onClick={() => notify("🔔 New booking alert sound simulated")} className="rounded-2xl bg-slate-200 px-4 py-2 font-black text-slate-900 dark:bg-slate-800 dark:text-white">Sound Alert</button></div></div></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><StatCard title="Bookings" value={bookings.length} icon={ClipboardList} sub="Total records" /><StatCard title="Staff" value={staff.length} icon={Users} sub="Workers" /><StatCard title="Revenue" value={`₹${totalRevenue.toLocaleString()}`} icon={IndianRupee} sub="Confirmed jobs" /><StatCard title="Fuel" value={`₹${fuelExpense}`} icon={ReceiptText} sub="KM based" /></div><div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Monthly Revenue Analytics</h3><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={analyticsData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="revenue" fill="#d4af37" radius={[12, 12, 0, 0]} /><Bar dataKey="profit" fill="#10b981" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></div></Card><Card><h3 className="mb-4 text-2xl font-black">Staff Performance Analytics</h3><div className="h-72"><ResponsiveContainer width="100%" height="100%"><BarChart data={staffChartData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="name" /><YAxis /><Tooltip /><Bar dataKey="jobs" fill="#3b82f6" radius={[12, 12, 0, 0]} /><Bar dataKey="completed" fill="#10b981" radius={[12, 12, 0, 0]} /></BarChart></ResponsiveContainer></div></Card></div></div>; }
-  function AuditLogs() { const logs = ["Dashboard opened", "Booking updated", "Payment marked", "Staff added", "Invoice viewed", "Rate edited"]; return <Card><h3 className="mb-4 text-2xl font-black">Audit Logs</h3>{logs.map((log, index) => <div key={log} className="mb-2 rounded-2xl bg-slate-100 p-3 text-sm dark:bg-slate-800"><b>Owner</b> • {log}<p className="text-xs text-slate-500">Log #{index + 1}</p></div>)}</Card>; }
-
-  function Screen() {
-    const map = { Dashboard, Jobs, "Supervisor App": SupervisorApp, "Live Bookings": LiveBookings, "Firebase Sync": FirebaseSync, Calendar: CalendarView, "Customers CRM": CustomersCRM, "Customer History": CustomerHistory, Complaints, Services, "Staff Performance": StaffPerformance, Attendance, Payroll, Inventory, Expenses, Payments, Reminders, Invoices, Marketing, "Profit Analysis": ProfitAnalysis, Reports, "Audit Logs": AuditLogs, Settings: SettingsView };
-    const Component = map[active] || Dashboard;
-    return <Component />;
-  }
-
-  if (!loggedIn) return <Login />;
-  return <Shell><Screen /></Shell>;
-}
+  function ProfitAnalysis() { const profitNow = Math.max(0, totalRevenue - fuelExpense); return <div className="space-y-4"><div className="grid gap-4 md:grid-cols-3"><StatCard title="Confirmed Revenue" value={`₹${totalRevenue.toLocaleString()}`} icon={IndianRupee} sub="Confirmed bookings only" /><StatCard title="Fuel / Ops Expense" value={`₹${fuelExpense}`} icon={ReceiptText} sub="KM based
