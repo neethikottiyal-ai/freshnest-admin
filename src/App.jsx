@@ -1,12 +1,47 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
-  Bell, CalendarDays, CheckCircle2, ClipboardList, CreditCard, IndianRupee,
-  LayoutDashboard, MapPin, Moon, Package, Phone, Plus, ReceiptText, Search,
-  Settings, Sparkles, Sun, TrendingUp, UserCheck, Users, Wallet, X,
-  ChevronLeft, ChevronRight, Trash2, FileText
+  Bell,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  IndianRupee,
+  LayoutDashboard,
+  MapPin,
+  Moon,
+  Package,
+  Phone,
+  Plus,
+  ReceiptText,
+  Search,
+  Settings,
+  Sparkles,
+  Sun,
+  TrendingUp,
+  UserCheck,
+  Users,
+  Wallet,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  Trash2,
+  FileText
 } from "lucide-react";
 
+import { db } from "../firebase";
+
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  serverTimestamp,
+  updateDoc,
+  doc
+} from "firebase/firestore";
 const START_SERVICES = [
   { id: 1, name: "Sofa Shampooing", rate: 550, unit: "seat", icon: "🛋️", category: "Shampooing" },
   { id: 2, name: "Mattress Shampooing - Single", rate: 950, unit: "unit", icon: "🛏️", category: "Mattress" },
@@ -100,7 +135,27 @@ export default function FreshNestAdminPreview() {
   const [active, setActive] = useState("Dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [bookings, setBookings] = useState(START_BOOKINGS);
-  const [staff, setStaff] = useState(START_STAFF);
+  useEffect(() => {
+  const q = query(
+    collection(db, "bookings"),
+    orderBy("createdAt", "desc")
+  );
+
+  const unsubscribe = onSnapshot(q, (snapshot) => {
+    const firebaseBookings = snapshot.docs.map((docItem) => ({
+      firebaseId: docItem.id,
+      ...docItem.data()
+    }));
+
+   if (firebaseBookings.length > 0) {
+  setBookings(firebaseBookings);
+}
+  });
+
+  return () => unsubscribe();
+}, []);
+
+const [staff, setStaff] = useState(START_STAFF);
   const [inventory, setInventory] = useState(START_INVENTORY);
   const [payroll, setPayroll] = useState(START_PAYROLL);
   const [services, setServices] = useState(START_SERVICES);
