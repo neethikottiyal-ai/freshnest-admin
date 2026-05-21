@@ -194,12 +194,12 @@ export default function FreshNestFullERP() {
   const unsubSync = onSnapshot(collection(db, "freshnest_sync"), (snapshot) => {
     const supervisorJobs = snapshot.docs
       .map((docItem) => ({ firebaseId: docItem.id, ...docItem.data() }))
-      .filter((x) => x.jobId || x.bookingId || x.customer || x.staff)
+     .filter((x) => x.type || x.jobId || x.bookingId || x.customer || x.staff || x.status)
       .map((x) =>
         normalize(
           {
             ...x,
-            id: x.jobId || x.bookingId || x.id,
+          id: x.jobId || x.bookingId || `SYNC-${x.firebaseId || x.id}`,
             customer: x.customer || x.staff || "Supervisor Update",
             amount: x.total || x.amount || 0,
             service: x.service || x.type || "Supervisor Update",
