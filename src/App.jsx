@@ -122,7 +122,17 @@ export default function FreshNestFullERP() {
           updatedAt: data.updatedAt,
         };
       });
-      setBookings(liveBookings.length ? liveBookings : bookingSeed);
+   setBookings((old) => {
+  const websiteData = liveBookings.length ? liveBookings : bookingSeed;
+  const map = new Map();
+
+  [...old, ...websiteData].forEach((b) => {
+    const key = b.id || b.jobId || b.bookingId || b.firebaseId;
+    map.set(key, b);
+  });
+
+  return Array.from(map.values());
+});
     });
     return () => unsub();
   }, []);
