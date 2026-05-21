@@ -126,7 +126,87 @@ export default function FreshNestFullERP() {
     });
     return () => unsub();
   }, []);
+  useEffect(() => {
+  const unsubscribers = [];
 
+  const mergeLive = (incoming) => {
+    setBookings((old) => {
+      const map = new Map();
+
+      [...old, ...incoming].forEach((b) => {
+        const key = b.id || b.jobId || b.bookingId || b.firebaseId;
+        const oldItem = map.get(key);
+        map.set(key, { ...(oldItem || {}), ...b });
+      });
+
+      return Array.from(map.values());
+    });
+  };
+
+  const normalize = (data, source, firebaseId) => ({
+    firebaseId,
+    source,
+    id: data.id || data.jobId || data.bookingId || firebaseId,
+    customer: data.customer || data.name || data.customerName || "Customer",
+    phone: data.phone || data.mobile || data.customerPhone || "",
+    area: data.area || data.location || "Trichy",
+    address: data.address || data.area || data.location || "",
+    map: data.map || data.locationUrl || "",
+    service: data.service || data.work || data.type || "Supervisor Update",
+    servicesList: Array.isArray(data.servicesList)
+      ? data.servicesList
+      : [{ service: data.service || data.type || "Supervisor Update", qty: 1, amount: Number(data.amount || data.total || 0) }],
+    amount: Number(data.amount || data.total || 0),
+    date: data.date || data.preferredDate || new Date().toISOString().slice(0, 10),
+    time: data.time || data.preferredTime || data.syncedAt || "",
+    supervisor: data.supervisor || data.supervisorAssigned || data.userEmail || "Supervisor",
+    status: data.status || "Updated",
+    confirmed: Boolean(data.confirmed) || ["Confirmed", "Booked", "On The Way", "Work Started", "Completed"].includes(data.status),
+    payment: data.payment || data.paymentMode || data.paymentStatus || "Pending",
+    lead: data.lead || data.leadSource || (source === "freshnest_sync" ? "Supervisor App" : source),
+    notes: data.note || data.notes || "",
+    startKm: data.startKm || data.pickupKm || "",
+    siteKm: data.siteKm || "",
+    returnKm: data.returnKm || "",
+    updatedAt: data.updatedAt || data.createdAt || new Date().toISOString(),
+  });
+
+  ["jobs", "leads"].forEach((collectionName) => {
+    const unsub = onSnapshot(collection(db, collectionName), (snapshot) => {
+      const incoming = snapshot.docs.map((docItem) =>
+        normalize(docItem.data(), collectionName, docItem.id)
+      );
+      mergeLive(incoming);
+    });
+    unsubscribers.push(unsub);
+  });
+
+  const unsubSync = onSnapshot(collection(db, "freshnest_sync"), (snapshot) => {
+    const supervisorJobs = snapshot.docs
+      .map((docItem) => ({ firebaseId: docItem.id, ...docItem.data() }))
+      .filter((x) => x.jobId || x.bookingId || x.customer || x.staff)
+      .map((x) =>
+        normalize(
+          {
+            ...x,
+            id: x.jobId || x.bookingId || x.id,
+            customer: x.customer || x.staff || "Supervisor Update",
+            amount: x.total || x.amount || 0,
+            service: x.service || x.type || "Supervisor Update",
+            status: x.status || x.type || "Updated",
+          },
+          "freshnest_sync",
+          x.firebaseId
+        )
+      );
+
+    mergeLive(supervisorJobs);
+  });
+
+  unsubscribers.push(unsubSync);
+
+  return () => unsubscribers.forEach((unsub) => unsub && unsub());
+}, []);
   const [staff, setStaff] = useState(staffSeed);
   const [inventory, setInventory] = useState(inventorySeed);
   const [services, setServices] = useState(masterServices);
