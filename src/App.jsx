@@ -291,7 +291,7 @@ export default function FreshNestFullERP() {
     });
 
     try {
-      await updateDoc(doc(db, "bookings", firebaseDocId), finalPatch);
+     await setDoc(doc(db, "bookings", firebaseDocId), finalPatch, { merge: true });
       setToast("Booking updated ✅");
       setTimeout(() => setToast(""), 2200);
     } catch (error) {
