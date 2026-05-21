@@ -254,7 +254,7 @@ export default function FreshNestFullERP() {
   const profit = Math.max(0, revenue - monthlyExpense);
   const repeatMap = bookings.reduce((a, b) => ({ ...a, [b.phone]: (a[b.phone] || 0) + 1 }), {});
   const repeat = Object.values(repeatMap).filter((n) => n > 1).length;
-  const nav = ["Dashboard", "Bookings", "Supervisor", "Operations Advanced", "Customer Portal", "Marketing Automation", "Calendar", "CRM", "Customer History", "Marketing", "Services", "Staff", "Attendance", "Payroll", "Inventory", "Expenses", "Payments", "Reminders", "Invoices", "Complaints", "Profit Analysis", "Reports", "Firebase Sync", "Settings"];
+  const nav = ["Dashboard", "Bookings", "Supervisor","Supervisor A-Z Sync", "Operations Advanced", "Customer Portal", "Marketing Automation", "Calendar", "CRM", "Customer History", "Marketing", "Services", "Staff", "Attendance", "Payroll", "Inventory", "Expenses", "Payments", "Reminders", "Invoices", "Complaints", "Profit Analysis", "Reports", "Firebase Sync", "Settings"];
 
   function statusDot(b) {
     if (b.status === "Cancelled") return "bg-red-500";
