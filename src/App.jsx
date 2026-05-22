@@ -954,24 +954,40 @@ function Attendance() {
 
 function Screen() {
   const screens = {
-    Dashboard, Bookings, Supervisor,
+    Dashboard,
+    Bookings,
+    Supervisor,
     "Supervisor A-Z Sync": SupervisorAZSync,
     "Operations Advanced": OperationsAdvanced,
     "Customer Portal": CustomerPortal,
     "Marketing Automation": MarketingAutomation,
-    Calendar, CRM, CustomerHistory, Services, Staff, Attendance,
-    Payroll, Inventory, Expenses, Payments, Reminders, Invoices,
-    Complaints, ProfitAnalysis, Reports, FirebaseSync, Settings
+    Calendar,
+    CRM,
+    CustomerHistory,
+    Services,
+    Staff,
+    Attendance,
+    Payroll,
+    Inventory,
+    Expenses,
+    Payments,
+    Reminders,
+    Invoices,
+    Complaints,
+    ProfitAnalysis,
+    Reports,
+    FirebaseSync,
+    Settings
   };
 
-  const Page = screens[active] || Dashboard;
-  return <Page />;
+  const safeActive = active && screens[active] ? active : "Dashboard";
+  const Page = screens[safeActive];
 
-if (!loggedIn) return <LoginScreen />;
+  if (!loggedIn) return <LoginScreen />;
 
-return (
-  <Layout>
-  <Page />
-  </Layout>
-);
+  return (
+    <Layout>
+      <Page />
+    </Layout>
+  );
 }
