@@ -215,8 +215,6 @@ export default function FreshNestFullERP() {
   mergeLive(supervisorJobs);
 });
 
-    mergeLive(supervisorJobs);
-  });
 
   unsubscribers.push(unsubSync);
 
