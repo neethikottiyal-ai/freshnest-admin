@@ -206,7 +206,19 @@ export default function FreshNestFullERP() {
           customer: x.customer || x.staff || "Supervisor Update",
           amount: x.total || x.amount || 0,
           service: x.service || x.type || "Supervisor Update",
-          status: x.status || x.type || "Updated",
+       status:
+  x.status ||
+  (x.type === "work_started"
+    ? "Work Started"
+    : x.type === "work_completed"
+    ? "Completed"
+    : x.type === "on_the_way"
+    ? "On The Way"
+    : x.type === "payment_paid"
+    ? "Completed"
+    : x.type === "staff_attendance"
+    ? "Updated"
+    : "Updated"),
         },
         "freshnest_sync",
         x.firebaseId
