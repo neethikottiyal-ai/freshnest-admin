@@ -596,7 +596,14 @@ function Dashboard() {
            <div><b>Service:</b> {item.service || "-"}</div>
 <div><b>Payment:</b> {item.payment || "-"}</div>
 <div><b>GPS:</b> {item.location || item.map || "-"}</div>
-<div><b>Selfie:</b> {item.photoUrl ? "Uploaded" : "-"}</div>
+<div>
+  <b>Selfie:</b>{" "}
+  {item.photoUrl ? (
+    <a href={item.photoUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold">
+      View Photo
+    </a>
+  ) : "-"}
+</div>
 <div><b>Payment Method:</b> {item.paymentMethod || "-"}</div>
 <div><b>KM:</b> {item.startKm || item.returnKm || "-"}</div>
             </div>
