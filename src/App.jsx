@@ -419,20 +419,54 @@ export default function FreshNestFullERP() {
       </div>
 
       <Card>
-        <h3 className="mb-4 text-xl font-black">Live Timeline</h3>
-        <div className="space-y-2">
-          {liveFeed.map((item) => (
-            <div key={item.firebaseId} className="rounded-2xl bg-slate-100 p-4">
-              <div className="flex justify-between">
-                <b>{item.jobId || item.bookingId || item.type || "Update"}</b>
-                <Badge>{item.status || item.type || "Live"}</Badge>
+  <h3 className="mb-4 text-xl font-black">Live Timeline</h3>
+
+  <div className="space-y-3 max-h-[520px] overflow-y-auto">
+    {liveFeed.length === 0 ? (
+      <div className="rounded-2xl bg-slate-100 p-6 text-center text-slate-500">
+        No supervisor live updates yet
+      </div>
+    ) : (
+      liveFeed
+        .sort((a, b) =>
+          new Date(b.updatedAt || b.createdAt || 0) -
+          new Date(a.updatedAt || a.createdAt || 0)
+        )
+        .map((item) => (
+          <div
+            key={item.firebaseId || item.id}
+            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-sm text-slate-500">
+                  {item.type || "Supervisor Update"}
+                </div>
+                <div className="text-lg font-black">
+                  {item.jobId || item.bookingId || item.id}
+                </div>
               </div>
-              <p className="text-sm text-slate-500">
-                {item.customer || item.staff || item.userEmail || "FreshNest"} • {item.note || item.service || item.syncedAt || ""}
-              </p>
+
+              <Badge>{item.status || "Live"}</Badge>
             </div>
-          ))}
-        </div>
+
+            <div className="mt-3 grid gap-2 md:grid-cols-2 text-sm">
+              <div><b>Staff:</b> {item.staff || "-"}</div>
+              <div><b>Customer:</b> {item.customer || "-"}</div>
+              <div><b>Service:</b> {item.service || "-"}</div>
+              <div><b>Payment:</b> {item.payment || "-"}</div>
+              <div><b>GPS:</b> {item.location || item.map || "-"}</div>
+              <div><b>KM:</b> {item.startKm || item.returnKm || "-"}</div>
+            </div>
+
+            <div className="mt-3 text-xs text-slate-500">
+              {item.updatedAt || item.createdAt || item.syncedAt || ""}
+            </div>
+          </div>
+        ))
+    )}
+  </div>
+</Card>
       </Card>
     </div>
   );
