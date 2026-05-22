@@ -392,18 +392,20 @@ async function addStaff() {
 
   try {
     await setDoc(doc(db, "staff", String(newStaff.id)), newStaff, { merge: true });
+
     await addDoc(collection(db, "freshnest_sync"), {
       type: "staff_added",
       staff: newStaff.name,
       status: "Active",
       createdAt: new Date().toISOString(),
-      syncedAt: new Date().toLocaleString(),
       source: "admin_dashboard",
     });
-    setToast("Staff synced to supervisor app ✅");
+
+    setToast("Staff synced ✅");
   } catch (error) {
-    setToast("Staff sync failed: " + (error?.message || error));
+    setToast("Staff sync failed");
   }
+}
 }
   function addExpense() { if (!expenseForm.amount) return; setExpenses((prev) => [...prev, { id: Date.now(), category: expenseForm.category, amount: Number(expenseForm.amount || 0), month: expenseForm.month }]); setExpenseForm({ category: "Fuel", amount: "", month: "2026-05" }); }
   function simulateWebsiteBooking() {
