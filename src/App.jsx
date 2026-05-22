@@ -191,7 +191,8 @@ export default function FreshNestFullERP() {
     unsubscribers.push(unsub);
   });
 
-  const unsubSync = onSnapshot(collection(db, "freshnest_sync"), (snapshot) => {
+ const unsubSync = onSnapshot(collection(db, "freshnest_sync"), (snapshot) => {
+  console.log("SYNC SNAPSHOT SIZE:", snapshot.size);
   const feedRows = snapshot.docs.map((docItem) => ({ firebaseId: docItem.id, ...docItem.data() }));
   setLiveFeed(feedRows);
 
