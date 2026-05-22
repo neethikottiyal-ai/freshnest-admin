@@ -955,4 +955,4 @@ function Attendance() {
   function Screen() { const screens = { Dashboard, Bookings, Supervisor,"Supervisor A-Z Sync": SupervisorAZSync, "Operations Advanced": OperationsAdvanced, "Customer Portal": CustomerPortal, "Marketing Automation": MarketingAutomation, Calendar, CRM, "Customer History": CustomerHistory, Marketing, Services, Staff, Attendance, Payroll, Inventory, Expenses, Payments, Reminders, Invoices, Complaints, "Profit Analysis": ProfitAnalysis, Reports, "Firebase Sync": FirebaseSync, Settings }; const Comp = screens[active] || Dashboard; return <Comp />; }
   if (!loggedIn) return <LoginScreen />;
   return <Layout><Screen /></Layout>;
-}
+
