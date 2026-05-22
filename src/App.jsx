@@ -447,16 +447,26 @@ export default function FreshNestFullERP() {
                 </div>
               </div>
 
-              <Badge>{item.status || "Live"}</Badge>
+              <Badge className={
+  item.status === "Completed"
+    ? "bg-green-500 text-white"
+    : item.status === "Work Started"
+    ? "bg-blue-500 text-white"
+    : "bg-yellow-500 text-black"
+}>
+  {item.status || "Live"}
+</Badge>
             </div>
 
             <div className="mt-3 grid gap-2 md:grid-cols-2 text-sm">
               <div><b>Staff:</b> {item.staff || "-"}</div>
               <div><b>Customer:</b> {item.customer || "-"}</div>
-              <div><b>Service:</b> {item.service || "-"}</div>
-              <div><b>Payment:</b> {item.payment || "-"}</div>
-              <div><b>GPS:</b> {item.location || item.map || "-"}</div>
-              <div><b>KM:</b> {item.startKm || item.returnKm || "-"}</div>
+           <div><b>Service:</b> {item.service || "-"}</div>
+<div><b>Payment:</b> {item.payment || "-"}</div>
+<div><b>GPS:</b> {item.location || item.map || "-"}</div>
+<div><b>Selfie:</b> {item.photoUrl ? "Uploaded" : "-"}</div>
+<div><b>Payment Method:</b> {item.paymentMethod || "-"}</div>
+<div><b>KM:</b> {item.startKm || item.returnKm || "-"}</div>
             </div>
 
             <div className="mt-3 text-xs text-slate-500">
