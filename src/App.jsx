@@ -198,8 +198,16 @@ workEndedAt: data.workEndedAt || "",
  const unsubSync = onSnapshot(collection(db, "freshnest_sync"), (snapshot) => {
   console.log("SYNC SNAPSHOT SIZE:", snapshot.size);
   const feedRows = snapshot.docs.map((docItem) => ({ firebaseId: docItem.id, ...docItem.data() }));
-  setLiveFeed(feedRows);
+ setLiveFeed(feedRows);
 
+if (feedRows.length > 0) {
+  const latest = feedRows[0];
+  setToast(
+    `🔔 Supervisor Update: ${latest.type || latest.status || "Update"}\n${latest.jobId || latest.bookingId || ""} ${latest.staff || latest.customer || ""}`
+  );
+}
+
+const supervisorJobs = feedRows
   const supervisorJobs = feedRows
     .filter((x) => x.type || x.jobId || x.bookingId || x.customer || x.staff || x.status)
     .map((x) =>
