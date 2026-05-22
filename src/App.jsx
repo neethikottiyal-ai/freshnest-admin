@@ -207,7 +207,7 @@ if (feedRows.length > 0) {
   );
 }
 
-const supervisorJobs = feedRows
+
   const supervisorJobs = feedRows
     .filter((x) => x.type || x.jobId || x.bookingId || x.customer || x.staff || x.status)
     .map((x) =>
