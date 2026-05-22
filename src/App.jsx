@@ -771,61 +771,7 @@ function MarketingAutomation() {
   );
 }
 
-function Calendar() {
-  const [year, month] = calendarMonth.split("-").map(Number);
-  const blank = new Date(year, month - 1, 1).getDay();
-  const days = daysInMonth(year, month);
-  const confirmedBookings = bookings.filter(
-    (b) => b.confirmed || b.status === "Confirmed" || b.status === "Completed"
-  );
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <h3 className="mb-4 text-xl font-black">Booking Calendar</h3>
-
-        <div className="grid grid-cols-7 gap-2 text-center text-sm font-bold">
-          {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map((d) => (
-            <div key={d}>{d}</div>
-          ))}
-
-          {[...Array(blank)].map((_, i) => (
-            <div key={`blank-${i}`} />
-          ))}
-
-          {[...Array(days)].map((_, i) => {
-            const day = i + 1;
-            const dateKey = `${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-            const dayBookings = confirmedBookings.filter((b) => b.date === dateKey);
-
-            return (
-              <button
-                key={day}
-                onClick={() => dayBookings.length && openBooking(dayBookings[0])}
-                className={`min-h-[90px] rounded-2xl border p-2 text-left ${
-                  dayBookings.length
-                    ? "bg-emerald-50 border-emerald-300"
-                    : "bg-white border-slate-200"
-                }`}
-              >
-                <div className="font-black">{day}</div>
-
-                {dayBookings.slice(0, 2).map((b) => (
-                  <div
-                    key={b.firebaseId || b.id}
-                    className="mt-1 rounded bg-emerald-200 px-2 py-1 text-xs"
-                  >
-                    {b.customer}
-                  </div>
-                ))}
-              </button>
-            );
-          })}
-        </div>
-      </Card>
-    </div>
-  );
-}
+function Calendar() { const [year, month] = calendarMonth.split("-").map(Number); const blank = new Date(year, month - 1, 1).getDay(); const days = daysInMonth(year, month - 1); const cells = [...Array(blank).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)]; return <div className="space-y-4"><Card><div className="flex flex-wrap justify-between gap-3"><h3 className="text-2xl font-black">Monthly Calendar</h3><input type="month" value={calendarMonth} onChange={(e) => setCalendarMonth(e.target.value)} className="rounded-2xl border p-2" /></div><div className="mt-4 grid grid-cols-7 gap-2 text-center text-xs font-black text-slate-500">{["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d => <div key={d}>{d}</div>)}</div><div className="mt-2 grid grid-cols-7 gap-2">{cells.map((d, i) => { if (!d) return <div key={`b-${i}`} className="min-h-28 rounded-2xl bg-slate-50" />; const date = `${year}-${String(month).padStart(2,"0")}-${String(d).padStart(2,"0")}`; const list = bookings.filter(b => b.confirmed && b.date === date); return <div key={date} className="min-h-28 rounded-2xl border p-2"><b>{d}</b>{list.map(b => <button key={b.id} onClick={() => openBooking(b)} className="mt-1 w-full truncate rounded-lg bg-[#07162a] px-2 py-1 text-left text-xs text-[#d4af37]">{b.customer}</button>)}</div>; })}</div></Card></div>; }
   function CRM() { return <div className="space-y-4"><div className="grid gap-4 md:grid-cols-4"><Stat title="🌐 Website Leads" value={website} sub="Website forms" /><Stat title="📱 App Leads" value={app} sub="App / Instagram" /><Stat title="📝 Manual Leads" value={manual} sub="Manual entry" /><Stat title="🔁 Repeat" value={repeat} sub="Phone matched" /></div><Card><h3 className="mb-4 text-2xl font-black">CRM Database - Confirmed Bookings Only</h3><BookingTable onlyConfirmed /></Card></div>; }
   function CustomerHistory() { const phones = [...new Set(bookings.map((b) => b.phone))]; return <div className="grid gap-4 md:grid-cols-2">{phones.map((p) => { const list = bookings.filter((b) => b.phone === p); return <Card key={p}><div className="flex justify-between"><div><h3 className="text-xl font-black">{list[0].customer}</h3><p className="text-sm text-slate-500">{p} • {list.length} booking(s)</p></div><Badge>{repeatMap[p] > 1 ? "Repeat" : "New"}</Badge></div><div className="mt-3 space-y-2">{list.map(b => <button key={b.id} onClick={() => openBooking(b)} className="w-full rounded-2xl bg-slate-100 p-3 text-left"><b>{b.id}</b><p>{b.service}</p><p>{money(b.amount)} • {b.date}</p></button>)}</div></Card>; })}</div>; }
   function Marketing() { const rows = [{ name: "🌐 Website Lead", count: website }, { name: "📱 App Lead", count: app }, { name: "📝 Manual Lead", count: manual }, { name: "🔁 Repeat Customer", count: repeat }]; return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Marketing Leads</h3>{rows.map((r) => <div key={r.name} className="mb-3 rounded-2xl bg-slate-100 p-4 flex justify-between"><b>{r.name}</b><span className="text-2xl font-black text-[#d4af37]">{r.count}</span></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Campaign Ideas</h3>{["Before/After reel", "Festival deep clean offer", "Water tank safety post", "Referral cashback"].map((i) => <div key={i} className="mb-3 rounded-2xl bg-[#07162a] p-4 font-black text-[#d4af37]">{i}</div>)}</Card></div>; }
