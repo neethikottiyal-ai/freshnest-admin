@@ -586,7 +586,7 @@ function Dashboard() {
             </div>
 
             <div className="mt-3 text-xs text-slate-500">
-              {item.updatedAt || item.createdAt || item.syncedAt || ""}
+             {item.syncedAt || item.updatedAt?.toDate?.()?.toLocaleString?.() || item.createdAt?.toDate?.()?.toLocaleString?.() || ""}
             </div>
           </div>
         ))
