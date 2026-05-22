@@ -211,18 +211,26 @@ workEndedAt: data.workEndedAt || "",
           amount: x.total || x.amount || 0,
           service: x.service || x.type || "Supervisor Update",
        status:
-  x.status ||
-  (x.type === "work_started"
-    ? "Work Started"
-    : x.type === "work_completed"
-    ? "Completed"
-    : x.type === "on_the_way"
-    ? "On The Way"
-    : x.type === "payment_paid"
-    ? "Completed"
-    : x.type === "staff_attendance"
-    ? "Updated"
-    : "Updated"),
+x.status ||
+(x.type === "work_started"
+  ? "Work Started"
+  : x.type === "work_completed"
+  ? "Completed"
+  : x.type === "on_the_way"
+  ? "On The Way"
+  : x.type === "site_reached"
+  ? "Site Reached"
+  : x.type === "pause_work"
+  ? "Paused"
+  : x.type === "resume_work"
+  ? "Work Started"
+  : x.type === "final_close"
+  ? "Completed"
+  : x.type === "payment_paid"
+  ? "Completed"
+  : x.type === "staff_attendance"
+  ? "Updated"
+  : "Updated"),
         },
         "freshnest_sync",
         x.firebaseId
