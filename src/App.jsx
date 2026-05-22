@@ -375,8 +375,35 @@ x.status ||
     }
   }
   async function addBooking(form) { const next = makeBooking(form, bookings.length); setBookings((prev) => [next, ...prev]); setShowAdd(false); setActive("Dashboard"); setToast(`New booking received: ${next.customer}`); setTimeout(() => setToast(""), 3500); try { await addDoc(collection(db, "bookings"), { ...next, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }); } catch (error) { setToast("Firebase add failed: " + (error?.message || error)); } }
-  function addStaff() { const typedName = document.getElementById("staff-name-input")?.value || staffForm.name; if (!typedName.trim()) return; setStaff((prev) => [...prev, { id: Date.now(), name: typedName.trim(), role: staffForm.role, status: "Present", salary: Number(staffForm.salary || 0), advance: 0, currentLat: "10.7905", currentLng: "78.7047" }]); const el = document.getElementById("staff-name-input"); if (el) el.value = ""; setStaffForm({ name: "", role: "Cleaner", salary: "20000" }); }
-  function addInventory() { if (!invForm.item.trim()) return; setInventory((prev) => [...prev, { id: Date.now(), item: invForm.item, stock: Number(invForm.stock || 0), min: Number(invForm.min || 0), unit: invForm.unit || "pcs" }]); setInvForm({ item: "", stock: "", min: "", unit: "pcs" }); }
+async function addStaff() {
+  if (!staffName.trim()) return;
+
+  const newStaff = {
+    id: Date.now(),
+    name: staffName.trim(),
+    role: "Staff",
+    status: "Active",
+    createdAt: new Date().toISOString(),
+  };
+
+  setStaff((prev) => [...prev, newStaff]);
+  setStaffName("");
+
+  try {
+    await setDoc(doc(db, "staff", String(newStaff.id)), newStaff, { merge: true });
+    await addDoc(collection(db, "freshnest_sync"), {
+      type: "staff_added",
+      staff: newStaff.name,
+      status: "Active",
+      createdAt: new Date().toISOString(),
+      syncedAt: new Date().toLocaleString(),
+      source: "admin_dashboard",
+    });
+    setToast("Staff synced to supervisor app ✅");
+  } catch (error) {
+    setToast("Staff sync failed: " + (error?.message || error));
+  }
+}
   function addExpense() { if (!expenseForm.amount) return; setExpenses((prev) => [...prev, { id: Date.now(), category: expenseForm.category, amount: Number(expenseForm.amount || 0), month: expenseForm.month }]); setExpenseForm({ category: "Fuel", amount: "", month: "2026-05" }); }
   function simulateWebsiteBooking() {
     const next = makeBooking({
