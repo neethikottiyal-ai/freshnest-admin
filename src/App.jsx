@@ -406,7 +406,7 @@ async function addStaff() {
     setToast("Staff sync failed");
   }
 }
-}
+
   function addExpense() { if (!expenseForm.amount) return; setExpenses((prev) => [...prev, { id: Date.now(), category: expenseForm.category, amount: Number(expenseForm.amount || 0), month: expenseForm.month }]); setExpenseForm({ category: "Fuel", amount: "", month: "2026-05" }); }
   function simulateWebsiteBooking() {
     const next = makeBooking({
