@@ -111,7 +111,9 @@ export default function FreshNestFullERP() {
           time: data.time || "10:00 AM",
           supervisor: data.supervisor || data.supervisorAssigned || "Unassigned",
           status: data.status || "Pending",
-          confirmed: Boolean(data.confirmed),
+         confirmed:
+  Boolean(data.confirmed) ||
+  ["Confirmed", "Booked", "On The Way", "Work Started", "Completed"].includes(data.status),
           payment: data.payment || "Pending",
           lead: data.lead || data.leadSource || "Website Lead",
           startKm: data.startKm || "",
@@ -166,19 +168,33 @@ export default function FreshNestFullERP() {
     servicesList: Array.isArray(data.servicesList)
       ? data.servicesList
       : [{ service: data.service || data.type || "Supervisor Update", qty: 1, amount: Number(data.amount || data.total || 0) }],
-    amount: Number(data.amount || data.total || 0),
+  amount: Number(
+  data.amount ||
+  data.total ||
+  data.finalAmount ||
+  data.grandTotal ||
+  0
+),
     date: data.date || data.preferredDate || new Date().toISOString().slice(0, 10),
     time: data.time || data.preferredTime || data.syncedAt || "",
     supervisor: data.supervisor || data.supervisorAssigned || data.userEmail || "Supervisor",
     status: data.status || "Updated",
     confirmed: Boolean(data.confirmed) || ["Confirmed", "Booked", "On The Way", "Work Started", "Completed"].includes(data.status),
-    payment: data.payment || data.paymentMode || data.paymentStatus || "Pending",
+   payment:
+  data.payment ||
+  data.paymentMode ||
+  data.paymentStatus ||
+  (data.type === "payment_paid" ? "Paid" : "Pending"),
     lead: data.lead || data.leadSource || (source === "freshnest_sync" ? "Supervisor App" : source),
     notes: data.note || data.notes || "",
-    startKm: data.startKm || data.pickupKm || "",
-    siteKm: data.siteKm || "",
-    returnKm: data.returnKm || "",
-    updatedAt: data.updatedAt || data.createdAt || new Date().toISOString(),
+location: data.location || data.map || data.gpsLocation || "",
+photoUrl: data.photoUrl || data.selfieUrl || data.workPhoto || "",
+paymentMethod: data.paymentMethod || data.paymentType || "",
+startKm: data.startKm || data.pickupKm || "",
+siteKm: data.siteKm || "",
+returnKm: data.returnKm || "",
+workStartedAt: data.workStartedAt || "",
+workEndedAt: data.workEndedAt || "",
   });
 
   ["jobs", "leads"].forEach((collectionName) => {
@@ -194,7 +210,15 @@ export default function FreshNestFullERP() {
  const unsubSync = onSnapshot(collection(db, "freshnest_sync"), (snapshot) => {
   console.log("SYNC SNAPSHOT SIZE:", snapshot.size);
   const feedRows = snapshot.docs.map((docItem) => ({ firebaseId: docItem.id, ...docItem.data() }));
-  setLiveFeed(feedRows);
+ setLiveFeed(feedRows);
+
+if (feedRows.length > 0) {
+  const latest = feedRows[0];
+  setToast(
+    `🔔 Supervisor Update: ${latest.type || latest.status || "Update"}\n${latest.jobId || latest.bookingId || ""} ${latest.staff || latest.customer || ""}`
+  );
+}
+
 
   const supervisorJobs = feedRows
     .filter((x) => x.type || x.jobId || x.bookingId || x.customer || x.staff || x.status)
@@ -207,18 +231,26 @@ export default function FreshNestFullERP() {
           amount: x.total || x.amount || 0,
           service: x.service || x.type || "Supervisor Update",
        status:
-  x.status ||
-  (x.type === "work_started"
-    ? "Work Started"
-    : x.type === "work_completed"
-    ? "Completed"
-    : x.type === "on_the_way"
-    ? "On The Way"
-    : x.type === "payment_paid"
-    ? "Completed"
-    : x.type === "staff_attendance"
-    ? "Updated"
-    : "Updated"),
+x.status ||
+(x.type === "work_started"
+  ? "Work Started"
+  : x.type === "work_completed"
+  ? "Completed"
+  : x.type === "on_the_way"
+  ? "On The Way"
+  : x.type === "site_reached"
+  ? "Site Reached"
+  : x.type === "pause_work"
+  ? "Paused"
+  : x.type === "resume_work"
+  ? "Work Started"
+  : x.type === "final_close"
+  ? "Completed"
+  : x.type === "payment_paid"
+  ? "Completed"
+  : x.type === "staff_attendance"
+  ? "Updated"
+  : "Updated"),
         },
         "freshnest_sync",
         x.firebaseId
@@ -356,7 +388,107 @@ export default function FreshNestFullERP() {
 
   function Layout({ children }) { return <div className="mobile-desktop-wrap"><div className="desktop-shell min-h-screen bg-slate-100 text-slate-950"><style>{`html,body,#root{height:100%;overflow:hidden}.desktop-shell{min-width:1280px}.app-main{height:100vh;overflow:auto}.drawer-scroll{height:calc(100vh - 24px);overflow:auto}.desktop-table{min-width:1120px}@media(max-width:1023px){.mobile-desktop-wrap{width:100vw;height:100vh;overflow:auto}.desktop-shell{min-width:1280px}.force-sidebar{display:block!important}.force-main{padding-left:18rem!important}.phone-card-grid{grid-template-columns:repeat(4,minmax(0,1fr))!important}.drawer-scroll{width:900px!important;max-width:900px!important}}`}</style>{toast && <div className="fixed right-4 top-4 z-50 max-w-sm rounded-2xl bg-[#07162a] p-4 text-sm font-bold text-[#d4af37] shadow-2xl whitespace-pre-line">{toast}</div>}<aside className="force-sidebar fixed left-0 top-0 hidden h-full w-72 overflow-y-auto bg-[#07162a] p-4 text-white lg:block"><div className="mb-4 rounded-3xl bg-white/10 p-4"><div className="text-3xl">🧹</div><h1 className="mt-2 font-black">FreshNest ERP</h1><p className="text-xs text-[#d4af37]">Neethirajan + Selva Kumar</p></div><nav className="space-y-1 pb-8">{nav.map((n) => <button key={n} onClick={() => setActive(n)} className={`w-full rounded-2xl px-4 py-3 text-left text-sm font-bold ${active === n ? "bg-[#d4af37] text-[#07162a]" : "text-white/70 hover:bg-white/10"}`}>{n}</button>)}</nav></aside><main className="force-main app-main lg:pl-72"><header className="sticky top-0 z-20 border-b bg-white/90 p-4 backdrop-blur"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-black">{active}</h2><p className="text-sm text-slate-500">FreshNest Cleaning Services • Trichy</p></div><div className="flex flex-wrap gap-2"><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search bookings..." className="rounded-2xl border px-4 py-2" /><button onClick={() => setShowAdd(true)} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]">+ Add Booking</button><button onClick={simulateWebsiteBooking} className="rounded-2xl bg-white px-4 py-2 font-bold shadow">🔔 Bell Sync</button><span className="rounded-2xl bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700 shadow">Admin</span><button onClick={() => { localStorage.removeItem('fn_admin_logged_in'); setLoggedIn(false); setLoginForm({ email: 'admin@freshnest.in', password: '' }); setActive('Dashboard'); setToast(''); }} className="rounded-2xl bg-red-50 px-4 py-2 font-bold text-red-700 shadow">Logout</button></div></div></header><div className="p-4 md:p-6">{children}</div></main>{showAdd && <AddBookingModal onClose={() => setShowAdd(false)} onSave={addBooking} />}{selected && <BookingDrawer booking={selected} onClose={() => setSelected(null)} />}</div></div>; }
 
-  function Dashboard() { return <div className="space-y-6"><Card className="bg-gradient-to-r from-[#07162a] to-slate-900 text-white"><div className="flex items-center gap-5"><div className="grid h-20 w-20 place-items-center rounded-3xl bg-[#d4af37] text-4xl">✨</div><div><p className="text-sm font-black text-[#d4af37]">Daily Positive Quote</p><h3 className="text-3xl font-black">{quoteOfDay}</h3><p className="mt-2 text-white/70">FreshNest team motivation board</p></div></div></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4"><Stat title="Confirmed Revenue" value={money(revenue)} sub="Confirmed bookings only" /><Stat title="Pending Confirm" value={pending} sub="Need follow-up" /><Stat title="Monthly Expense" value={money(monthlyExpense)} sub="Fuel + all expense" /><Stat title="Profit" value={money(profit)} sub="Revenue - expense" /></div><div className="grid gap-4"><Card><h3 className="mb-4 text-xl font-black">Live Bookings</h3><BookingTable compact /></Card></div><div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-xl font-black">Dashboard Calendar</h3><div className="grid gap-2">{confirmed.slice(0, 5).map((b) => <button key={b.firebaseId || b.id} onClick={() => openBooking(b)} className="flex items-center justify-between rounded-2xl bg-slate-100 p-3 text-left"><span><b>{b.customer}</b><p className="text-xs text-slate-500">{b.date} • {b.service}</p></span><span className={`h-3 w-3 rounded-full ${statusDot(b)}`} /></button>)}</div></Card><Card><h3 className="mb-4 text-xl font-black">Stock Alert</h3><div className="grid gap-2">{inventory.filter((i) => Number(i.stock) <= Number(i.min)).map((i) => <div key={i.id} className="rounded-2xl bg-red-50 p-3 text-red-700"><b>{i.item}</b><p className="text-xs">Stock {i.stock} {i.unit} • Min {i.min}</p></div>)}{inventory.filter((i) => Number(i.stock) <= Number(i.min)).length === 0 && <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">All stock safe ✅</div>}</div></Card></div><div className="grid gap-4 xl:grid-cols-3"><Card><h3 className="mb-4 text-xl font-black">Notifications</h3><div className="space-y-2"><button onClick={simulateWebsiteBooking} className="w-full rounded-2xl bg-[#07162a] p-3 text-left font-black text-[#d4af37]">🌐 Test Website Booking Sync</button><div className="rounded-2xl bg-slate-100 p-3">{pending} bookings waiting confirmation</div><div className="rounded-2xl bg-slate-100 p-3">Website Leads: {website}</div><div className="rounded-2xl bg-slate-100 p-3">Low Stock: {inventory.filter((i) => i.stock <= i.min).length}</div></div></Card></div></div>; }
+function Dashboard() {
+  return (
+    <div className="space-y-6">
+      <Card className="bg-gradient-to-r from-[#07162a] to-slate-900 text-white">
+        <div className="flex items-center gap-5">
+          <div className="grid h-20 w-20 place-items-center rounded-3xl bg-[#d4af37] text-4xl">✨</div>
+          <div>
+            <p className="text-sm font-black text-[#d4af37]">Daily Positive Quote</p>
+            <h3 className="text-3xl font-black">{quoteOfDay}</h3>
+            <p className="mt-2 text-white/70">FreshNest team motivation board</p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <Stat title="Confirmed Revenue" value={money(revenue)} sub="Confirmed bookings only" />
+        <Stat title="Pending Confirm" value={pending} sub="Need follow-up" />
+        <Stat title="Active Jobs" value={bookings.filter((b) => ["On The Way", "Work Started"].includes(b.status)).length} sub="field work" />
+        <Stat title="Completed" value={bookings.filter((b) => b.status === "Completed").length} sub="done" />
+        <Stat title="Monthly Expense" value={money(monthlyExpense)} sub="Fuel + all expense" />
+        <Stat title="Profit" value={money(profit)} sub="Revenue - expense" />
+      </div>
+
+      <Card>
+        <h3 className="mb-4 text-xl font-black">Latest Supervisor Updates</h3>
+        <div className="space-y-2">
+          {liveFeed.slice(0, 6).map((item) => (
+            <div key={item.firebaseId || item.id} className="rounded-2xl bg-slate-100 p-3">
+              <div className="flex justify-between">
+                <b>{item.jobId || item.bookingId || item.type || "Update"}</b>
+                <Badge>{item.status || item.type || "Live"}</Badge>
+              </div>
+              <p className="text-xs text-slate-500">
+                {item.customer || item.staff || item.userEmail || "FreshNest"} • {item.note || item.service || item.syncedAt || ""}
+              </p>
+            </div>
+          ))}
+          {liveFeed.length === 0 && (
+            <div className="rounded-2xl bg-slate-100 p-3 text-sm text-slate-500">
+              No supervisor updates yet
+            </div>
+          )}
+        </div>
+      </Card>
+
+      <div className="grid gap-4">
+        <Card>
+          <h3 className="mb-4 text-xl font-black">Live Bookings</h3>
+          <BookingTable compact />
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card>
+          <h3 className="mb-4 text-xl font-black">Dashboard Calendar</h3>
+          <div className="grid gap-2">
+            {confirmed.slice(0, 5).map((b) => (
+              <button key={b.firebaseId || b.id} onClick={() => openBooking(b)} className="flex items-center justify-between rounded-2xl bg-slate-100 p-3 text-left">
+                <span>
+                  <b>{b.customer}</b>
+                  <p className="text-xs text-slate-500">{b.date} • {b.service}</p>
+                </span>
+                <span className={`h-3 w-3 rounded-full ${statusDot(b)}`} />
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h3 className="mb-4 text-xl font-black">Stock Alert</h3>
+          <div className="grid gap-2">
+            {inventory.filter((i) => Number(i.stock) <= Number(i.min)).map((i) => (
+              <div key={i.id} className="rounded-2xl bg-red-50 p-3 text-red-700">
+                <b>{i.item}</b>
+                <p className="text-xs">Stock {i.stock} {i.unit} • Min {i.min}</p>
+              </div>
+            ))}
+            {inventory.filter((i) => Number(i.stock) <= Number(i.min)).length === 0 && (
+              <div className="rounded-2xl bg-emerald-50 p-3 text-emerald-700">All stock safe ✅</div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <Card>
+          <h3 className="mb-4 text-xl font-black">Notifications</h3>
+          <div className="space-y-2">
+            <button onClick={simulateWebsiteBooking} className="w-full rounded-2xl bg-[#07162a] p-3 text-left font-black text-[#d4af37]">
+              🌐 Test Website Booking Sync
+            </button>
+            <div className="rounded-2xl bg-slate-100 p-3">{pending} bookings waiting confirmation</div>
+            <div className="rounded-2xl bg-slate-100 p-3">Website Leads: {website}</div>
+            <div className="rounded-2xl bg-slate-100 p-3">Supervisor Live Events: {liveFeed.length}</div>
+            <div className="rounded-2xl bg-slate-100 p-3">Low Stock: {inventory.filter((i) => i.stock <= i.min).length}</div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
   function BookingTable({ compact = false, onlyConfirmed = false }) {
     const baseRows = onlyConfirmed ? filtered.filter((b) => b.confirmed || b.status === "Confirmed" || b.status === "Completed") : filtered;
     const rows = compact ? baseRows.slice(0, 5) : baseRows;
@@ -475,14 +607,50 @@ export default function FreshNestFullERP() {
               <div><b>Customer:</b> {item.customer || "-"}</div>
            <div><b>Service:</b> {item.service || "-"}</div>
 <div><b>Payment:</b> {item.payment || "-"}</div>
-<div><b>GPS:</b> {item.location || item.map || "-"}</div>
-<div><b>Selfie:</b> {item.photoUrl ? "Uploaded" : "-"}</div>
+<div>
+  <b>GPS:</b>{" "}
+  {item.location || item.map ? (
+    <a
+      href={item.map || `https://maps.google.com/?q=${item.location}`}
+      target="_blank"
+      rel="noreferrer"
+      className="font-bold text-blue-600"
+    >
+      Open Map
+    </a>
+  ) : "-"}
+</div>
+<div>
+  <b>Selfie:</b>{" "}
+  {item.photoUrl ? (
+    <a href={item.photoUrl} target="_blank" rel="noreferrer" className="text-blue-600 font-bold">
+      View Photo
+    </a>
+  ) : "-"}
+</div>
 <div><b>Payment Method:</b> {item.paymentMethod || "-"}</div>
+
+<div><b>Amount:</b> {item.amount ? money(item.amount) : "-"}</div>
+
+<div>
+  <b>Payment Proof:</b>{" "}
+  {item.paymentProofUrl ? (
+    <a
+      href={item.paymentProofUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="font-bold text-blue-600"
+    >
+      View Proof
+    </a>
+  ) : "-"}
+</div>
+
 <div><b>KM:</b> {item.startKm || item.returnKm || "-"}</div>
             </div>
 
             <div className="mt-3 text-xs text-slate-500">
-              {item.updatedAt || item.createdAt || item.syncedAt || ""}
+             {item.syncedAt || item.updatedAt?.toDate?.()?.toLocaleString?.() || item.createdAt?.toDate?.()?.toLocaleString?.() || ""}
             </div>
           </div>
         ))
@@ -605,4 +773,3 @@ function Calendar() { const [year, month] = calendarMonth.split("-").map(Number)
   if (!loggedIn) return <LoginScreen />;
   return <Layout><Screen /></Layout>;
 }
-
