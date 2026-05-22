@@ -84,14 +84,29 @@ function Stat({ title, value, sub }) { return <Card><p className="text-sm text-s
 
 function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
 function makeBooking(form, count) { const list = form.servicesList || [{ service: form.service, qty: 1, amount: form.amount || 0 }]; const amount = list.reduce((sum, item) => sum + Number(item.amount || 0), 0); return { id: `FN-${1001 + count}`, customer: form.customer || "New Customer", phone: form.phone || "", area: form.area || "Trichy", address: form.address || form.area || "Trichy", map: form.map || "", service: list.map((item) => item.service).join(" + "), servicesList: list, amount, date: form.date || new Date().toISOString().slice(0, 10), time: form.time || "10:00 AM", supervisor: form.supervisor || "Unassigned", status: "Pending", confirmed: false, payment: "Pending", lead: form.lead || "Manual Lead", startKm: "", siteKm: "", returnKm: "", notes: form.notes || "" }; }
+const loadLocal = (key, fallback) => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 export default function FreshNestFullERP() {
   const [loggedIn, setLoggedIn] = useState(() => localStorage.getItem("fn_admin_logged_in") === "yes");
   const [loginForm, setLoginForm] = useState({ email: "admin@freshnest.in", password: "" });
   const [loginError, setLoginError] = useState("");
-  const [active, setActive] = useState("Dashboard");
-  const [bookings, setBookings] = useState(bookingSeed);
-  const [liveFeed, setLiveFeed] = useState([]);
+  const [active, setActive] = useState(() => localStorage.getItem("fn_active_page") || "Dashboard");
+const [bookings, setBookings] = useState(() => loadLocal("fn_bookings", bookingSeed));
+const [liveFeed, setLiveFeed] = useState([]);
+ useEffect(() => {
+  localStorage.setItem("fn_active_page", active);
+}, [active]);
+
+useEffect(() => {
+  localStorage.setItem("fn_bookings", JSON.stringify(bookings));
+}, [bookings]); 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
       const liveBookings = snapshot.docs.map((doc) => {
