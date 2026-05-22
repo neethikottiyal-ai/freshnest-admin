@@ -979,9 +979,13 @@ function Screen() {
     Settings
   };
 
-  const Page = screens[active] || Dashboard;
+ const safeActive = active && screens[active] ? active : "Dashboard";
+const Page = screens[safeActive];
 
   if (!loggedIn) return <LoginScreen />;
+
+  console.log("ACTIVE PAGE:", active);
+  console.log("PAGE FOUND:", !!Page);
 
   return (
     <Layout>
