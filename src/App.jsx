@@ -79,19 +79,46 @@ function money(n) { return `₹${Number(n || 0).toLocaleString("en-IN")}`; }
 function cx(...c) { return c.filter(Boolean).join(" "); }
 function Card({ children, className = "" }) { return <div className={cx("rounded-3xl bg-white p-5 shadow-sm border border-slate-200", className)}>{children}</div>; }
 function Badge({ children }) { const cls = { Pending: "bg-amber-100 text-amber-800", Confirmed: "bg-emerald-100 text-emerald-800", Completed: "bg-emerald-100 text-emerald-800", Cancelled: "bg-red-100 text-red-800", Paid: "bg-emerald-100 text-emerald-800", "Advance Paid": "bg-blue-100 text-blue-800", Present: "bg-emerald-100 text-emerald-800", Absent: "bg-red-100 text-red-800" }[children] || "bg-slate-100 text-slate-700"; return <span className={cx("inline-flex rounded-full px-3 py-1 text-xs font-bold leading-none", cls)}>{children}</span>; }
-function Field({ label, value, onChange, type = "text" }) { return <label className="grid gap-1 text-sm font-bold text-slate-700">{label}<input className="rounded-2xl border border-slate-200 px-3 py-2 outline-none focus:border-[#d4af37]" type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)} /></label>; }
+const Field = React.memo(function Field({ label, value, onChange, type = "text" }) {
+  return (
+    <label className="grid gap-1 text-sm font-bold text-slate-700">
+      {label}
+      <input
+        className="rounded-2xl border border-slate-200 px-3 py-2 outline-none focus:border-[#d4af37]"
+        type={type}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
+});
 function Stat({ title, value, sub }) { return <Card><p className="text-sm text-slate-500">{title}</p><h3 className="mt-2 text-3xl font-black text-slate-950">{value}</h3><p className="mt-1 text-xs text-slate-500">{sub}</p></Card>; }
 
 function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
 function makeBooking(form, count) { const list = form.servicesList || [{ service: form.service, qty: 1, amount: form.amount || 0 }]; const amount = list.reduce((sum, item) => sum + Number(item.amount || 0), 0); return { id: `FN-${1001 + count}`, customer: form.customer || "New Customer", phone: form.phone || "", area: form.area || "Trichy", address: form.address || form.area || "Trichy", map: form.map || "", service: list.map((item) => item.service).join(" + "), servicesList: list, amount, date: form.date || new Date().toISOString().slice(0, 10), time: form.time || "10:00 AM", supervisor: form.supervisor || "Unassigned", status: "Pending", confirmed: false, payment: "Pending", lead: form.lead || "Manual Lead", startKm: "", siteKm: "", returnKm: "", notes: form.notes || "" }; }
+const loadLocal = (key, fallback) => {
+  try {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : fallback;
+  } catch {
+    return fallback;
+  }
+};
 
 export default function FreshNestFullERP() {
   const [loggedIn, setLoggedIn] = useState(() => localStorage.getItem("fn_admin_logged_in") === "yes");
   const [loginForm, setLoginForm] = useState({ email: "admin@freshnest.in", password: "" });
   const [loginError, setLoginError] = useState("");
-  const [active, setActive] = useState("Dashboard");
-  const [bookings, setBookings] = useState(bookingSeed);
-  const [liveFeed, setLiveFeed] = useState([]);
+  const [active, setActive] = useState(() => localStorage.getItem("fn_active_page") || "Dashboard");
+const [bookings, setBookings] = useState(() => loadLocal("fn_bookings", bookingSeed));
+const [liveFeed, setLiveFeed] = useState([]);
+ useEffect(() => {
+  localStorage.setItem("fn_active_page", active);
+}, [active]);
+
+useEffect(() => {
+  localStorage.setItem("fn_bookings", JSON.stringify(bookings));
+}, [bookings]); 
   useEffect(() => {
     const unsub = onSnapshot(collection(db, "bookings"), (snapshot) => {
       const liveBookings = snapshot.docs.map((doc) => {
@@ -279,9 +306,10 @@ x.status ||
   const [expenseForm, setExpenseForm] = useState({ category: "Fuel", amount: "", month: "2026-05" });
   const [complaints, setComplaints] = useState([{ id: 1, customer: "Karthik", issue: "Staff reached late", status: "Open" }]);
   const [complaintForm, setComplaintForm] = useState({ customer: "", issue: "" });
-  const [calendarMonth, setCalendarMonth] = useState("2026-05");
-  const [attendanceDate, setAttendanceDate] = useState("2026-05-19");
-
+ 
+const [calendarMonth, setCalendarMonth] = useState("2026-05");
+const [attendanceDate, setAttendanceDate] = useState("2026-05-19");
+const [attendance, setAttendance] = useState([]);
   const sortedBookings = useMemo(() => {
     return [...bookings].sort((a, b) => {
       const at = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(`${a.date || "2000-01-01"} ${a.time || "00:00"}`).getTime();
@@ -348,8 +376,35 @@ x.status ||
     }
   }
   async function addBooking(form) { const next = makeBooking(form, bookings.length); setBookings((prev) => [next, ...prev]); setShowAdd(false); setActive("Dashboard"); setToast(`New booking received: ${next.customer}`); setTimeout(() => setToast(""), 3500); try { await addDoc(collection(db, "bookings"), { ...next, createdAt: serverTimestamp(), updatedAt: serverTimestamp() }); } catch (error) { setToast("Firebase add failed: " + (error?.message || error)); } }
-  function addStaff() { const typedName = document.getElementById("staff-name-input")?.value || staffForm.name; if (!typedName.trim()) return; setStaff((prev) => [...prev, { id: Date.now(), name: typedName.trim(), role: staffForm.role, status: "Present", salary: Number(staffForm.salary || 0), advance: 0, currentLat: "10.7905", currentLng: "78.7047" }]); const el = document.getElementById("staff-name-input"); if (el) el.value = ""; setStaffForm({ name: "", role: "Cleaner", salary: "20000" }); }
-  function addInventory() { if (!invForm.item.trim()) return; setInventory((prev) => [...prev, { id: Date.now(), item: invForm.item, stock: Number(invForm.stock || 0), min: Number(invForm.min || 0), unit: invForm.unit || "pcs" }]); setInvForm({ item: "", stock: "", min: "", unit: "pcs" }); }
+async function addStaff() {
+  if (!staffName.trim()) return;
+
+  const newStaff = {
+    id: Date.now(),
+    name: staffName.trim(),
+    role: "Staff",
+    status: "Active",
+    createdAt: new Date().toISOString(),
+  };
+
+  setStaff((prev) => [...prev, newStaff]);
+  setStaffName("");
+
+  try {
+    await setDoc(doc(db, "staff", String(newStaff.id)), newStaff, { merge: true });
+    await addDoc(collection(db, "freshnest_sync"), {
+      type: "staff_added",
+      staff: newStaff.name,
+      status: "Active",
+      createdAt: new Date().toISOString(),
+      syncedAt: new Date().toLocaleString(),
+      source: "admin_dashboard",
+    });
+    setToast("Staff synced to supervisor app ✅");
+  } catch (error) {
+    setToast("Staff sync failed: " + (error?.message || error));
+  }
+}
   function addExpense() { if (!expenseForm.amount) return; setExpenses((prev) => [...prev, { id: Date.now(), category: expenseForm.category, amount: Number(expenseForm.amount || 0), month: expenseForm.month }]); setExpenseForm({ category: "Fuel", amount: "", month: "2026-05" }); }
   function simulateWebsiteBooking() {
     const next = makeBooking({
@@ -722,7 +777,79 @@ function Calendar() { const [year, month] = calendarMonth.split("-").map(Number)
   function Marketing() { const rows = [{ name: "🌐 Website Lead", count: website }, { name: "📱 App Lead", count: app }, { name: "📝 Manual Lead", count: manual }, { name: "🔁 Repeat Customer", count: repeat }]; return <div className="grid gap-4 xl:grid-cols-2"><Card><h3 className="mb-4 text-2xl font-black">Marketing Leads</h3>{rows.map((r) => <div key={r.name} className="mb-3 rounded-2xl bg-slate-100 p-4 flex justify-between"><b>{r.name}</b><span className="text-2xl font-black text-[#d4af37]">{r.count}</span></div>)}</Card><Card><h3 className="mb-4 text-2xl font-black">Campaign Ideas</h3>{["Before/After reel", "Festival deep clean offer", "Water tank safety post", "Referral cashback"].map((i) => <div key={i} className="mb-3 rounded-2xl bg-[#07162a] p-4 font-black text-[#d4af37]">{i}</div>)}</Card></div>; }
   function Services() { return <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{services.map((s, i) => <Card key={i}><div className="mb-3 flex items-center gap-3"><div className="grid h-14 w-14 place-items-center rounded-2xl bg-slate-100 text-3xl">{serviceIcons[s.name] || "✨"}</div><h3 className="text-xl font-black">{s.name}</h3></div><p className="text-slate-500">Rate: {money(s.rate)} / {s.unit}</p><div className="mt-3 grid grid-cols-2 gap-2"><Field label="Rate" type="number" value={s.rate} onChange={(v) => setServices((prev) => prev.map((x, idx) => idx === i ? { ...x, rate: Number(v || 0) } : x))} /><Field label="Unit" value={s.unit} onChange={(v) => setServices((prev) => prev.map((x, idx) => idx === i ? { ...x, unit: v } : x))} /></div></Card>)}</div>; }
   function Staff() { return <div className="space-y-4"><Card><h3 className="mb-4 text-xl font-black">Add Staff</h3><div className="grid gap-3 md:grid-cols-4"><input id="staff-name-input" defaultValue="" placeholder="Full name type pannunga" className="rounded-2xl border p-3 md:col-span-2" /><input value={staffForm.role} onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })} placeholder="Role" className="rounded-2xl border p-3" /><button onClick={addStaff} className="rounded-2xl bg-[#07162a] p-3 font-black text-[#d4af37]">Add</button></div></Card><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{staff.map((s, index) => <Card key={s.id}><div className="mb-3 flex items-center gap-3"><div className="grid h-14 w-14 place-items-center rounded-2xl bg-[#07162a] text-3xl">{staffAvatars[index % staffAvatars.length]}</div><div><h3 className="text-xl font-black">{s.name}</h3><p className="text-slate-500">{s.role}</p></div></div><Badge>{s.status}</Badge><div className="mt-3"><Field label="Salary Edit" type="number" value={s.salary} onChange={(v) => setStaff(prev => prev.map(x => x.id === s.id ? { ...x, salary: Number(v || 0) } : x))} /></div></Card>)}</div></div>; }
-  function Attendance() { const [y, m] = attendanceDate.slice(0,7).split("-").map(Number); const days = daysInMonth(y, m - 1); return <Card><div className="mb-4 flex flex-wrap justify-between gap-3"><h3 className="text-2xl font-black">Attendance Monthly Calendar</h3><input type="month" value={attendanceDate.slice(0,7)} onChange={(e) => setAttendanceDate(`${e.target.value}-01`)} className="rounded-2xl border p-2" /></div><div className="grid grid-cols-7 gap-2">{Array.from({length: days}, (_,i)=>i+1).map(d => { const date = `${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`; return <button key={date} onClick={() => setAttendanceDate(date)} className={`rounded-2xl p-3 text-left ${attendanceDate === date ? "bg-[#07162a] text-[#d4af37]" : "bg-slate-100"}`}><b>{d}</b><p className="text-xs">P:{staff.filter(s=>s.status==='Present').length} A:{staff.filter(s=>s.status==='Absent').length}</p></button>; })}</div><div className="mt-5 grid gap-3">{staff.map((s) => <div key={s.id} className="flex justify-between rounded-2xl bg-slate-100 p-4"><div><b>{s.name}</b><p className="text-sm text-slate-500">{attendanceDate}</p></div><select value={s.status} onChange={(e) => setStaff(prev => prev.map(x => x.id===s.id ? { ...x, status:e.target.value } : x))} className="rounded-xl border p-2"><option>Present</option><option>Absent</option></select></div>)}</div></Card>; }
+function Attendance() {
+  const todayAttendance = attendance.filter((a) => a.date === attendanceDate);
+
+  async function markAttendance(staffName, status) {
+    const payload = {
+      staff: staffName,
+      status,
+      date: attendanceDate,
+      time: new Date().toLocaleTimeString(),
+      createdAt: new Date().toISOString(),
+      source: "admin_dashboard",
+    };
+
+    setAttendance((prev) => [...prev, payload]);
+
+    try {
+      await addDoc(collection(db, "attendance"), payload);
+      await addDoc(collection(db, "freshnest_sync"), {
+        type: "staff_attendance",
+        staff: staffName,
+        status,
+        date: attendanceDate,
+        syncedAt: new Date().toLocaleString(),
+        createdAt: new Date().toISOString(),
+        source: "admin_dashboard",
+      });
+      setToast("Attendance synced ✅");
+    } catch (error) {
+      setToast("Attendance sync failed: " + (error?.message || error));
+    }
+  }
+
+  return (
+    <Card>
+      <h3 className="mb-4 text-xl font-black">Attendance</h3>
+
+      <input
+        type="date"
+        value={attendanceDate}
+        onChange={(e) => setAttendanceDate(e.target.value)}
+        className="mb-4 rounded-2xl border px-3 py-2"
+      />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {staff.map((s) => {
+          const rec = todayAttendance.find((a) => a.staff === s.name);
+          return (
+            <div key={s.id || s.name} className="rounded-2xl bg-slate-100 p-4">
+              <b>{s.name}</b>
+              <p className="text-xs text-slate-500">{s.role}</p>
+              <p className="mt-1 text-sm font-bold">Status: {rec?.status || "Not Marked"}</p>
+
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => markAttendance(s.name, "Present")}
+                  className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-black text-white"
+                >
+                  Present
+                </button>
+                <button
+                  onClick={() => markAttendance(s.name, "Absent")}
+                  className="rounded-xl bg-red-600 px-3 py-2 text-sm font-black text-white"
+                >
+                  Absent
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
   function Payroll() { return <Card><h3 className="mb-4 text-2xl font-black">Payroll Edit</h3>{staff.map((s) => <div key={s.id} className="mb-3 grid gap-3 rounded-2xl bg-slate-100 p-4 md:grid-cols-4"><b>{s.name}</b><input type="number" value={s.salary} onChange={(e)=>setStaff(prev=>prev.map(x=>x.id===s.id?{...x,salary:Number(e.target.value||0)}:x))} className="rounded-xl border p-2" /><input type="number" value={s.advance} onChange={(e)=>setStaff(prev=>prev.map(x=>x.id===s.id?{...x,advance:Number(e.target.value||0)}:x))} className="rounded-xl border p-2" /><span>Balance {money(s.salary - s.advance)}</span></div>)}</Card>; }
   function Inventory() { return <Card><div className="mb-4 flex justify-between"><h3 className="text-2xl font-black">Inventory</h3><button onClick={addInventory} className="rounded-2xl bg-[#07162a] px-4 py-2 font-black text-[#d4af37]">Add Item</button></div><div className="mb-4 grid gap-3 md:grid-cols-4"><input value={invForm.item} onChange={(e) => setInvForm({ ...invForm, item: e.target.value })} placeholder="Item" className="rounded-2xl border p-3" /><input value={invForm.stock} onChange={(e) => setInvForm({ ...invForm, stock: e.target.value })} placeholder="Stock" className="rounded-2xl border p-3" /><input value={invForm.min} onChange={(e) => setInvForm({ ...invForm, min: e.target.value })} placeholder="Min" className="rounded-2xl border p-3" /><input value={invForm.unit} onChange={(e) => setInvForm({ ...invForm, unit: e.target.value })} placeholder="Unit" className="rounded-2xl border p-3" /></div>{inventory.map((i) => <div key={i.id} className="mb-3 flex justify-between rounded-2xl bg-slate-100 p-4"><div><b>{i.item}</b><p className="text-sm text-slate-500">Min {i.min} {i.unit}</p></div><b>{i.stock} {i.unit}</b></div>)}</Card>; }
   function Expenses() { const categories = ["Fuel", "Chemical", "Machine Maintenance", "Van Maintenance", "Gloves", "Stick / Cleaning Things", "Fiber Cloth", "Accessories", "Marketing Expenses", "Meta Ads", "Instagram Ads", "Web Ads"]; return <div className="space-y-4"><div className="grid gap-4 md:grid-cols-4"><Stat title="Auto Fuel" value={money(autoFuel)} sub={`${km} km`} /><Stat title="Manual Expenses" value={money(expenses.reduce((s,e)=>s+Number(e.amount||0),0))} sub="All categories" /><Stat title="Monthly Total" value={money(monthlyExpense)} sub="Auto + manual" /><Stat title="Profit After Expense" value={money(profit)} sub="Revenue - expense" /></div><Card><h3 className="mb-4 text-2xl font-black">Add / Edit Expenses</h3><div className="grid gap-3 md:grid-cols-4"><select value={expenseForm.category} onChange={(e)=>setExpenseForm({...expenseForm,category:e.target.value})} className="rounded-2xl border p-3">{categories.map(c=><option key={c}>{c}</option>)}</select><input type="number" value={expenseForm.amount} onChange={(e)=>setExpenseForm({...expenseForm,amount:e.target.value})} placeholder="Amount" className="rounded-2xl border p-3" /><input type="month" value={expenseForm.month} onChange={(e)=>setExpenseForm({...expenseForm,month:e.target.value})} className="rounded-2xl border p-3" /><button onClick={addExpense} className="rounded-2xl bg-[#07162a] p-3 font-bold text-[#d4af37]">Add Expense</button></div><div className="mt-4 grid gap-3">{expenses.map(e=><div key={e.id} className="grid gap-3 rounded-2xl bg-slate-100 p-4 md:grid-cols-4"><b>{e.category}</b><input type="number" value={e.amount} onChange={(ev)=>setExpenses(prev=>prev.map(x=>x.id===e.id?{...x,amount:Number(ev.target.value||0)}:x))} className="rounded-xl border p-2" /><span>{e.month}</span><b>{money(e.amount)}</b></div>)}</div></Card></div>; }
