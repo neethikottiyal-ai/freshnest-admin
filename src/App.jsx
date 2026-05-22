@@ -971,7 +971,7 @@ if (!loggedIn) return <LoginScreen />;
 
 return (
   <Layout>
-    <Screen />
+  <Page />
   </Layout>
 );
 }
