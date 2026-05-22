@@ -966,7 +966,6 @@ function Screen() {
 
   const Page = screens[active] || Dashboard;
   return <Page />;
-}
 
 if (!loggedIn) return <LoginScreen />;
 
