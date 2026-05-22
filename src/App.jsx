@@ -79,7 +79,19 @@ function money(n) { return `₹${Number(n || 0).toLocaleString("en-IN")}`; }
 function cx(...c) { return c.filter(Boolean).join(" "); }
 function Card({ children, className = "" }) { return <div className={cx("rounded-3xl bg-white p-5 shadow-sm border border-slate-200", className)}>{children}</div>; }
 function Badge({ children }) { const cls = { Pending: "bg-amber-100 text-amber-800", Confirmed: "bg-emerald-100 text-emerald-800", Completed: "bg-emerald-100 text-emerald-800", Cancelled: "bg-red-100 text-red-800", Paid: "bg-emerald-100 text-emerald-800", "Advance Paid": "bg-blue-100 text-blue-800", Present: "bg-emerald-100 text-emerald-800", Absent: "bg-red-100 text-red-800" }[children] || "bg-slate-100 text-slate-700"; return <span className={cx("inline-flex rounded-full px-3 py-1 text-xs font-bold leading-none", cls)}>{children}</span>; }
-function Field({ label, value, onChange, type = "text" }) { return <label className="grid gap-1 text-sm font-bold text-slate-700">{label}<input className="rounded-2xl border border-slate-200 px-3 py-2 outline-none focus:border-[#d4af37]" type={type} value={value ?? ""} onChange={(e) => onChange(e.target.value)} /></label>; }
+const Field = React.memo(function Field({ label, value, onChange, type = "text" }) {
+  return (
+    <label className="grid gap-1 text-sm font-bold text-slate-700">
+      {label}
+      <input
+        className="rounded-2xl border border-slate-200 px-3 py-2 outline-none focus:border-[#d4af37]"
+        type={type}
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
+});
 function Stat({ title, value, sub }) { return <Card><p className="text-sm text-slate-500">{title}</p><h3 className="mt-2 text-3xl font-black text-slate-950">{value}</h3><p className="mt-1 text-xs text-slate-500">{sub}</p></Card>; }
 
 function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
