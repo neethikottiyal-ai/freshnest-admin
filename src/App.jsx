@@ -595,7 +595,19 @@ function Dashboard() {
               <div><b>Customer:</b> {item.customer || "-"}</div>
            <div><b>Service:</b> {item.service || "-"}</div>
 <div><b>Payment:</b> {item.payment || "-"}</div>
-<div><b>GPS:</b> {item.location || item.map || "-"}</div>
+<div>
+  <b>GPS:</b>{" "}
+  {item.location || item.map ? (
+    <a
+      href={item.map || `https://maps.google.com/?q=${item.location}`}
+      target="_blank"
+      rel="noreferrer"
+      className="font-bold text-blue-600"
+    >
+      Open Map
+    </a>
+  ) : "-"}
+</div>
 <div>
   <b>Selfie:</b>{" "}
   {item.photoUrl ? (
