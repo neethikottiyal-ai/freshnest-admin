@@ -111,7 +111,9 @@ export default function FreshNestFullERP() {
           time: data.time || "10:00 AM",
           supervisor: data.supervisor || data.supervisorAssigned || "Unassigned",
           status: data.status || "Pending",
-          confirmed: Boolean(data.confirmed),
+         confirmed:
+  Boolean(data.confirmed) ||
+  ["Confirmed", "Booked", "On The Way", "Work Started", "Completed"].includes(data.status),
           payment: data.payment || "Pending",
           lead: data.lead || data.leadSource || "Website Lead",
           startKm: data.startKm || "",
@@ -166,13 +168,23 @@ export default function FreshNestFullERP() {
     servicesList: Array.isArray(data.servicesList)
       ? data.servicesList
       : [{ service: data.service || data.type || "Supervisor Update", qty: 1, amount: Number(data.amount || data.total || 0) }],
-    amount: Number(data.amount || data.total || 0),
+  amount: Number(
+  data.amount ||
+  data.total ||
+  data.finalAmount ||
+  data.grandTotal ||
+  0
+),
     date: data.date || data.preferredDate || new Date().toISOString().slice(0, 10),
     time: data.time || data.preferredTime || data.syncedAt || "",
     supervisor: data.supervisor || data.supervisorAssigned || data.userEmail || "Supervisor",
     status: data.status || "Updated",
     confirmed: Boolean(data.confirmed) || ["Confirmed", "Booked", "On The Way", "Work Started", "Completed"].includes(data.status),
-    payment: data.payment || data.paymentMode || data.paymentStatus || "Pending",
+   payment:
+  data.payment ||
+  data.paymentMode ||
+  data.paymentStatus ||
+  (data.type === "payment_paid" ? "Paid" : "Pending"),
     lead: data.lead || data.leadSource || (source === "freshnest_sync" ? "Supervisor App" : source),
     notes: data.note || data.notes || "",
 location: data.location || data.map || data.gpsLocation || "",
