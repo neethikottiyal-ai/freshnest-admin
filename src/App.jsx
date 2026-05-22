@@ -617,6 +617,23 @@ function Dashboard() {
   ) : "-"}
 </div>
 <div><b>Payment Method:</b> {item.paymentMethod || "-"}</div>
+
+<div><b>Amount:</b> {item.amount ? money(item.amount) : "-"}</div>
+
+<div>
+  <b>Payment Proof:</b>{" "}
+  {item.paymentProofUrl ? (
+    <a
+      href={item.paymentProofUrl}
+      target="_blank"
+      rel="noreferrer"
+      className="font-bold text-blue-600"
+    >
+      View Proof
+    </a>
+  ) : "-"}
+</div>
+
 <div><b>KM:</b> {item.startKm || item.returnKm || "-"}</div>
             </div>
 
