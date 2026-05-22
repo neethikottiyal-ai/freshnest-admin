@@ -175,10 +175,14 @@ export default function FreshNestFullERP() {
     payment: data.payment || data.paymentMode || data.paymentStatus || "Pending",
     lead: data.lead || data.leadSource || (source === "freshnest_sync" ? "Supervisor App" : source),
     notes: data.note || data.notes || "",
-    startKm: data.startKm || data.pickupKm || "",
-    siteKm: data.siteKm || "",
-    returnKm: data.returnKm || "",
-    updatedAt: data.updatedAt || data.createdAt || new Date().toISOString(),
+location: data.location || data.map || data.gpsLocation || "",
+photoUrl: data.photoUrl || data.selfieUrl || data.workPhoto || "",
+paymentMethod: data.paymentMethod || data.paymentType || "",
+startKm: data.startKm || data.pickupKm || "",
+siteKm: data.siteKm || "",
+returnKm: data.returnKm || "",
+workStartedAt: data.workStartedAt || "",
+workEndedAt: data.workEndedAt || "",
   });
 
   ["jobs", "leads"].forEach((collectionName) => {
